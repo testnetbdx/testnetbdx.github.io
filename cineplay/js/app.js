@@ -63,6 +63,38 @@ function matchPct(m) {
 function primaryGenre(m) {
   return String(m.genre || '').split(',')[0].trim();
 }
+/* ---- quality badges + categories (backward compatible: missing fields render fine) ---- */
+const CATEGORY_LABELS = { 'movie': 'Movies', 'web-series': 'Web Series', 'anime': 'Anime', 'ott': 'OTT' };
+function movieCategory(m) {
+  const c = String((m && m.category) || 'movie').toLowerCase().trim();
+  return CATEGORY_LABELS[c] ? c : 'movie';
+}
+function qualityList(m) {
+  return m && Array.isArray(m.quality) ? m.quality.filter(Boolean) : [];
+}
+function languageList(m) {
+  return String((m && m.languages) || '').split(',').map((s) => s.trim()).filter(Boolean);
+}
+const QB_CLASS = { '4K': 'qb-4k', 'FHD': 'qb-fhd', 'HD': 'qb-hd', 'BD': 'qb-bd', 'HDR': 'qb-hdr', 'DV': 'qb-dv', '10BIT': 'qb-10bit', 'SDR': 'qb-sdr' };
+function qbClass(q) { return QB_CLASS[String(q).toUpperCase()] || ''; }
+function qualityBadges(m) {
+  const q = qualityList(m);
+  if (!q.length) return '';
+  return `<div class="qbadges">${q.map((x) => `<span class="qb ${qbClass(x)}">${esc(x)}</span>`).join('')}</div>`;
+}
+function qualityBadgesInline(m) {
+  const q = qualityList(m);
+  if (!q.length) return '';
+  return q.map((x) => `<span class="qb ${qbClass(x)}">${esc(x)}</span>`).join(' ');
+}
+function hoverTags(m) {
+  const tags = [];
+  String(m.genre || '').split(',').map((s) => s.trim()).filter(Boolean).forEach((g) => tags.push(g));
+  languageList(m).forEach((l) => tags.push(l));
+  qualityList(m).forEach((q) => tags.push(q));
+  if (!tags.length) return '';
+  return `<div class="card-hover">${tags.map((t) => `<span class="htag">${esc(t)}</span>`).join('')}</div>`;
+}
 function heroImage(m) { return m.backdrop_url || m.poster_url || ''; }
 
 async function fetchMovies() {
@@ -124,7 +156,8 @@ function showHero(i) {
     match ? `<span class="match">${match}</span>` : '',
     m.year ? esc(m.year) : '',
     m.duration ? esc(m.duration) : '',
-    primaryGenre(m) ? `<span class="tag">${esc(primaryGenre(m))}</span>` : ''
+    primaryGenre(m) ? `<span class="tag">${esc(primaryGenre(m))}</span>` : '',
+    qualityBadgesInline(m)
   ].filter(Boolean).join(' &nbsp;•&nbsp; ');
 
   $('#billboardContent').innerHTML = `
@@ -145,10 +178,15 @@ function showHero(i) {
 
 /* ---------------- Rows ---------------- */
 function cardHTML(m) {
+  const metaBits = [m.year ? esc(m.year) : '', m.episode_info ? esc(m.episode_info) : '']
+    .filter(Boolean).join(' &nbsp;•&nbsp; ');
   return `
     <div class="card" data-id="${esc(m.id)}">
       ${m.poster_url ? `<img src="${esc(m.poster_url)}" alt="${esc(m.title)}" loading="lazy" onerror="this.style.visibility='hidden'">` : '<img alt="" onerror="this.style.visibility=\'hidden\'">'}
+      ${qualityBadges(m)}
+      ${hoverTags(m)}
       <div class="card-title">${esc(m.title)}</div>
+      ${metaBits ? `<div class="card-meta">${metaBits}</div>` : ''}
     </div>`;
 }
 
@@ -234,6 +272,48 @@ function renderRows() {
   });
 }
 
+/* ---------------- Category browse ---------------- */
+let activeCategory = null;
+
+function setActiveNav(key) {
+  $$('.nav-links a').forEach((a) => {
+    a.classList.toggle('active', (a.dataset.cat || a.dataset.scroll) === key);
+  });
+  $$('#catbar button').forEach((b) => {
+    b.classList.toggle('active', (b.dataset.cat || b.dataset.scroll) === key);
+  });
+}
+
+function showCategory(cat) {
+  activeCategory = cat;
+  closeModal();
+  $('#searchOverlay').classList.remove('show');
+  $('#billboard').style.display = 'none';
+  $('#rows').style.display = 'none';
+  $('#browseView').style.display = 'block';
+  const label = CATEGORY_LABELS[cat] || 'Browse';
+  $('#browseTitle').textContent = 'Browse: ' + label;
+  const list = allMovies.filter((m) => movieCategory(m) === cat);
+  $('#browseGrid').innerHTML = list.length ? list.map(cardHTML).join('')
+    : `<div class="empty-state" style="grid-column:1/-1">
+         <div class="big">🎬</div>
+         <h2>No titles here yet</h2>
+         <p>New ${esc(label.toLowerCase())} titles are coming soon. Check back later!</p>
+       </div>`;
+  $$('#browseGrid .card').forEach((el) => el.addEventListener('click', () => openModal(el.dataset.id)));
+  setActiveNav(cat);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function showHome() {
+  activeCategory = null;
+  $('#billboard').style.display = '';
+  $('#rows').style.display = '';
+  $('#browseView').style.display = 'none';
+  setActiveNav('top');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 /* ---------------- Detail modal ---------------- */
 function openModal(id) {
   const m = allMovies.find((x) => x.id === id);
@@ -266,8 +346,10 @@ function openModal(id) {
         <div class="modal-meta">
           ${match ? `<span class="match">${match}</span>` : ''}
           ${m.year ? `<span>${esc(m.year)}</span>` : ''}
+          ${m.episode_info ? `<span>${esc(m.episode_info)}</span>` : ''}
           ${m.duration ? `<span>${esc(m.duration)}</span>` : ''}
           ${m.genre ? `<span class="tag">${esc(m.genre)}</span>` : ''}
+          ${qualityBadgesInline(m)}
         </div>
         <p class="modal-desc">${esc(m.description || 'No description available.')}</p>
         ${similar.length ? `
@@ -292,6 +374,8 @@ function openModal(id) {
       <div class="modal-side">
         <p><b>Genre:</b> ${esc(m.genre || '—')}</p>
         <p style="margin-top:8px"><b>Rating:</b> ${m.rating != null ? esc(m.rating) + ' / 10' : '—'}</p>
+        <p style="margin-top:8px"><b>Category:</b> ${esc(CATEGORY_LABELS[movieCategory(m)])}</p>
+        ${m.languages ? `<p style="margin-top:8px"><b>Languages:</b> ${esc(m.languages)}</p>` : ''}
       </div>
     </div>`;
 
@@ -323,13 +407,16 @@ function doSearch(q) {
   if (q.length < 2) { overlay.classList.remove('show'); return; }
   const hits = allMovies.filter((m) =>
     String(m.title || '').toLowerCase().includes(q) ||
-    String(m.genre || '').toLowerCase().includes(q));
+    String(m.genre || '').toLowerCase().includes(q) ||
+    String(m.languages || '').toLowerCase().includes(q) ||
+    qualityList(m).join(' ').toLowerCase().includes(q));
   $('#searchLabel').textContent = hits.length
     ? `${hits.length} result${hits.length > 1 ? 's' : ''} for "${q}"`
     : `No results for "${q}"`;
   $('#searchResults').innerHTML = hits.length ? hits.map((m) => `
     <div class="search-card" data-id="${esc(m.id)}">
       ${m.poster_url ? `<img src="${esc(m.poster_url)}" alt="${esc(m.title)}" loading="lazy" onerror="this.style.visibility='hidden'">` : ''}
+      ${qualityBadges(m)}
       <p>${esc(m.title)}</p>
     </div>`).join('')
     : '<div class="no-results">Try a different title or genre.</div>';
@@ -362,18 +449,27 @@ async function init() {
   const nav = $('#navbar');
   window.addEventListener('scroll', () => nav.classList.toggle('scrolled', window.scrollY > 10), { passive: true });
 
-  // nav links
+  // nav links (desktop nav, mobile catbar, footer)
   $$('[data-scroll]').forEach((a) => a.addEventListener('click', (ev) => {
     ev.preventDefault();
     const where = a.dataset.scroll;
-    if (where === 'top') window.scrollTo({ top: 0, behavior: 'smooth' });
-    else if (where === 'rows') $('#rows').scrollIntoView({ behavior: 'smooth' });
+    if (where === 'top') showHome();
+    else if (where === 'rows') { showHome(); setTimeout(() => $('#rows').scrollIntoView({ behavior: 'smooth' }), 80); }
     else if (where === 'mylist') {
-      const el = $('#row-mylist');
-      if (el) el.scrollIntoView({ behavior: 'smooth' });
-      else toast('Your list is empty — tap + on any title to save it here.');
+      const go = () => {
+        const el = $('#row-mylist');
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+        else toast('Your list is empty — tap + on any title to save it here.');
+      };
+      if (activeCategory) { showHome(); setTimeout(go, 120); }
+      else go();
     }
   }));
+  $$('[data-cat]').forEach((a) => a.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    showCategory(a.dataset.cat);
+  }));
+  $('#browseClear').addEventListener('click', showHome);
 
   // search
   const box = $('#searchBox'), input = $('#searchInput');

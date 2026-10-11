@@ -6,7 +6,7 @@
 <title>Admin — CinePlay</title>
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%23E50914'/><path d='M26 20l18 12-18 12z' fill='white'/></svg>">
-<link rel="stylesheet" href="css/style.css?v=20261011a">
+<link rel="stylesheet" href="css/style.css?v=20261011e">
 </head>
 <body class="admin-page">
 
@@ -152,6 +152,38 @@
         <label for="fDuration">Duration</label>
         <input type="text" id="fDuration" placeholder="2h 15m">
       </div>
+      <div class="field full">
+        <label>Quality badges</label>
+        <div class="qchecks" id="fQuality">
+          <label class="qcheck"><input type="checkbox" value="4K"> 4K</label>
+          <label class="qcheck"><input type="checkbox" value="FHD"> FHD</label>
+          <label class="qcheck"><input type="checkbox" value="HD"> HD</label>
+          <label class="qcheck"><input type="checkbox" value="BD"> BD</label>
+          <label class="qcheck"><input type="checkbox" value="HDR"> HDR</label>
+          <label class="qcheck"><input type="checkbox" value="DV"> DV</label>
+          <label class="qcheck"><input type="checkbox" value="10Bit"> 10Bit</label>
+          <label class="qcheck"><input type="checkbox" value="SDR"> SDR</label>
+        </div>
+        <div class="hint">Ticked badges show on the site's cards (top-right pills).</div>
+      </div>
+      <div class="field">
+        <label for="fCategory">Category</label>
+        <select id="fCategory">
+          <option value="movie" selected>Movie</option>
+          <option value="web-series">Web Series</option>
+          <option value="anime">Anime</option>
+          <option value="ott">OTT</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="fLanguages">Languages</label>
+        <input type="text" id="fLanguages" placeholder="Hindi, English">
+      </div>
+      <div class="field">
+        <label for="fEpisode">Episode info</label>
+        <input type="text" id="fEpisode" placeholder="S01 EP04">
+        <div class="hint">For series — e.g. S01 EP04.</div>
+      </div>
       <div class="field">
         <label for="fPosterFile">Poster image</label>
         <input type="file" id="fPosterFile" accept="image/*">
@@ -248,6 +280,6 @@
 
 <div id="toast"></div>
 
-<script src="js/admin.js?v=20261011d"></script>
+<script src="js/admin.js?v=20261011e"></script>
 </body>
 </html>

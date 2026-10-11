@@ -468,6 +468,89 @@ table.movies tr:hover td { background: #1b1b1b; }
 .progress-label { font-size: 12px; color: var(--muted); margin-top: 6px; }
 .form-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; }
 
+/* ============================================================
+   Quality badges + categories + browse view
+   ============================================================ */
+.qbadges {
+  position: absolute; top: 6px; right: 6px; z-index: 2;
+  display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end;
+  max-width: 75%;
+}
+.qb {
+  font-size: 9px; font-weight: 800; letter-spacing: .4px; white-space: nowrap;
+  padding: 2px 6px; border-radius: 3px;
+  background: #141414; color: #fff; border: 1px solid rgba(255,255,255,.28);
+}
+.qb-4k { background: #f5a623; border-color: #f5a623; color: #000; }
+.qb-hdr { background: #e50914; border-color: #e50914; }
+.qb-dv { background: #2b2b2b; }
+.qb-bd { background: #2196f3; border-color: #2196f3; }
+.qb-fhd, .qb-hd { background: #0d0d0d; }
+.qb-10bit { background: #6a1b9a; border-color: #6a1b9a; }
+.qb-sdr { background: #616161; border-color: #616161; }
+.card-meta {
+  font-size: 11px; color: var(--muted-2); margin-top: 3px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* hover tag overlay (genre + languages + quality) */
+.card-hover {
+  position: absolute; inset: 0; z-index: 3; pointer-events: none;
+  display: flex; flex-wrap: wrap; gap: 6px; align-content: center; justify-content: center;
+  padding: 12px; border-radius: var(--radius);
+  background: rgba(10,10,10,.84); opacity: 0; transition: opacity .22s ease;
+}
+.card:hover .card-hover { opacity: 1; }
+.htag {
+  font-size: 10px; font-weight: 600; white-space: nowrap; color: #eee;
+  background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.28);
+  padding: 3px 9px; border-radius: 20px;
+}
+/* category browse view */
+#browseView { padding: calc(var(--nav-h) + 28px) 4vw 70px; min-height: 72vh; }
+.browse-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; }
+.browse-head h2 { font-size: 24px; font-weight: 800; }
+#browseClear {
+  background: var(--bg-4); color: #fff; padding: 9px 18px; border-radius: 20px;
+  font-size: 13px; font-weight: 700;
+}
+#browseClear:hover { background: #4a4a4a; }
+.browse-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px 14px; }
+.browse-grid .card { width: auto; }
+.browse-grid .empty-state { grid-column: 1 / -1; }
+.nav-links a.active { color: #fff; font-weight: 700; }
+/* mobile category bar (desktop nav hides under 900px) */
+.catbar { display: none; }
+.search-card { position: relative; }
+/* admin: quality checkboxes + pills */
+.qchecks { display: flex; flex-wrap: wrap; gap: 10px 20px; margin-top: 2px; }
+.qcheck { display: flex; align-items: center; gap: 7px; font-size: 13px; color: #ddd; cursor: pointer; }
+.qcheck input { width: 16px; height: 16px; accent-color: var(--red); }
+.m-pills { margin-top: 5px; }
+.pill {
+  display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .4px;
+  text-transform: uppercase; padding: 2px 8px; border-radius: 10px;
+  background: #2a2a2a; color: #ccc; margin: 0 5px 3px 0;
+}
+.pill.cat { background: #1c2b1f; color: #9fe8b8; }
+@media (max-width: 1100px) { .browse-grid { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 900px) {
+  .catbar {
+    display: flex; gap: 8px; overflow-x: auto; padding: 10px 4vw;
+    position: sticky; top: var(--nav-h); z-index: 950;
+    background: rgba(13,13,13,.96); border-bottom: 1px solid #262626;
+  }
+  .catbar::-webkit-scrollbar { height: 0; }
+  .catbar button {
+    flex: 0 0 auto; background: #222; color: #ddd; border: 1px solid #333;
+    padding: 7px 15px; border-radius: 20px; font-size: 13px; font-weight: 600;
+  }
+  .catbar button.active { background: var(--red); border-color: var(--red); color: #fff; }
+  #searchOverlay { top: calc(var(--nav-h) + 52px); }
+  #browseView { padding-top: calc(var(--nav-h) + 80px); }
+}
+@media (max-width: 700px) { .browse-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 460px) { .browse-grid { grid-template-columns: repeat(2, 1fr); } }
+
 /* ---------------- Responsive ---------------- */
 @media (max-width: 900px) {
   .nav-links { display: none; }

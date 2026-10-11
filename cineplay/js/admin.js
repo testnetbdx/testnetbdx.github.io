@@ -47,6 +47,16 @@ function showFormError(msg) {
 }
 function clearFormError() { $('#formError').classList.remove('show'); }
 
+/* ---- quality + category helpers (backward compatible: old movies without these fields render fine) ---- */
+const CATEGORY_LABELS = { 'movie': 'Movie', 'web-series': 'Web Series', 'anime': 'Anime', 'ott': 'OTT' };
+function movieCategory(m) {
+  const c = String((m && m.category) || 'movie').toLowerCase().trim();
+  return CATEGORY_LABELS[c] ? c : 'movie';
+}
+function qualityList(m) {
+  return m && Array.isArray(m.quality) ? m.quality.filter(Boolean) : [];
+}
+
 /* ---------------- GitHub API ---------------- */
 function ghHeaders() {
   return {
@@ -672,7 +682,9 @@ function renderDashboard() {
   tbody.innerHTML = movies.map((m) => `
     <tr>
       <td>${m.poster_url ? `<img class="m-thumb" src="${esc(m.poster_url)}" alt="" loading="lazy" onerror="this.remove()">` : ''}</td>
-      <td><div class="m-title">${esc(m.title)}</div><div class="m-sub">${m.duration ? esc(m.duration) + ' • ' : ''}${m.rating != null ? '★ ' + esc(m.rating) : ''}</div></td>
+      <td><div class="m-title">${esc(m.title)}</div>
+        <div class="m-pills"><span class="pill cat">${esc(CATEGORY_LABELS[movieCategory(m)])}</span>${qualityList(m).map((q) => `<span class="pill">${esc(q)}</span>`).join('')}</div>
+        <div class="m-sub">${m.duration ? esc(m.duration) + ' • ' : ''}${m.rating != null ? '★ ' + esc(m.rating) : ''}${m.episode_info ? ' • ' + esc(m.episode_info) : ''}</div></td>
       <td>${m.year ? esc(m.year) : '—'}</td>
       <td>${esc(m.genre || '—')}</td>
       <td>${m.is_featured ? '<span class="badge feat">Featured</span>' : ''}${m.is_trending ? '<span class="badge trend">Trending</span>' : ''}</td>
@@ -774,6 +786,12 @@ function openForm(movie) {
   $('#fGenre').value = movie ? movie.genre || '' : '';
   $('#fRating').value = movie && movie.rating != null ? movie.rating : '';
   $('#fDuration').value = movie ? movie.duration || '' : '';
+  $$('#fQuality input[type="checkbox"]').forEach((cb) => {
+    cb.checked = !!(movie && Array.isArray(movie.quality) && movie.quality.includes(cb.value));
+  });
+  $('#fCategory').value = movie ? movieCategory(movie) : 'movie';
+  $('#fLanguages').value = movie ? movie.languages || '' : '';
+  $('#fEpisode').value = movie ? movie.episode_info || '' : '';
   $('#fPosterFile').value = '';
   $('#fBackdropFile').value = '';
   $('#fPosterUrl').value = movie ? movie.poster_url || '' : '';
@@ -900,6 +918,10 @@ async function saveMovie() {
       genre: $('#fGenre').value.trim(),
       rating: Number.isFinite(ratingVal) ? Math.min(10, Math.max(0, ratingVal)) : null,
       duration: $('#fDuration').value.trim(),
+      quality: $$('#fQuality input[type="checkbox"]:checked').map((cb) => cb.value),
+      category: $('#fCategory').value || 'movie',
+      languages: $('#fLanguages').value.trim(),
+      episode_info: $('#fEpisode').value.trim(),
       poster_url,
       backdrop_url,
       video_url,

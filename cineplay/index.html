@@ -6,7 +6,7 @@
 <title>CinePlay — Watch Movies</title>
 <meta name="description" content="CinePlay — stream movies. Trending, Top 10 and more.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%23E50914'/><path d='M26 20l18 12-18 12z' fill='white'/></svg>">
-<link rel="stylesheet" href="css/style.css?v=20261011a">
+<link rel="stylesheet" href="css/style.css?v=20261011e">
 </head>
 <body>
 
@@ -17,8 +17,10 @@
     CinePlay
   </a>
   <nav class="nav-links">
-    <a data-scroll="top">Home</a>
-    <a data-scroll="rows">Movies</a>
+    <a data-scroll="top" class="active">Home</a>
+    <a data-cat="movie">Movies</a>
+    <a data-cat="web-series">Web Series</a>
+    <a data-cat="anime">Anime</a>
     <a data-scroll="mylist">My List</a>
   </nav>
   <div class="nav-spacer"></div>
@@ -38,6 +40,15 @@
 </div>
 
 <main>
+  <!-- ============ MOBILE CATEGORY BAR ============ -->
+  <div class="catbar" id="catbar">
+    <button data-scroll="top" class="active">Home</button>
+    <button data-cat="movie">Movies</button>
+    <button data-cat="web-series">Web Series</button>
+    <button data-cat="anime">Anime</button>
+    <button data-scroll="mylist">My List</button>
+  </div>
+
   <!-- ============ BILLBOARD HERO ============ -->
   <section id="billboard">
     <div class="billboard-bg" id="billboardBg"></div>
@@ -48,6 +59,15 @@
 
   <!-- ============ CONTENT ROWS ============ -->
   <section id="rows"></section>
+
+  <!-- ============ CATEGORY BROWSE ============ -->
+  <section id="browseView" style="display:none">
+    <div class="browse-head">
+      <h2 id="browseTitle">Browse</h2>
+      <button id="browseClear">✕ Clear</button>
+    </div>
+    <div class="browse-grid" id="browseGrid"></div>
+  </section>
 </main>
 
 <!-- ============ DETAIL MODAL ============ -->
@@ -61,12 +81,12 @@
   <div class="f-logo">CINEPLAY</div>
   <div class="f-links">
     <a data-scroll="top">Home</a>
-    <a data-scroll="rows">Movies</a>
+    <a data-cat="movie">Movies</a>
     <a data-scroll="mylist">My List</a>
   </div>
   <p>&copy; 2026 CinePlay. All rights reserved.</p>
 </footer>
 
-<script src="js/app.js?v=20261011c"></script>
+<script src="js/app.js?v=20261011e"></script>
 </body>
 </html>
