@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CinePlay</title>
+<meta name="description" content="CinePlay — movie details, screenshots, watch and download.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%23E50914'/><path d='M26 20l18 12-18 12z' fill='white'/></svg>">
+<link rel="stylesheet" href="css/style.css?v=20261011f">
+</head>
+<body>
+
+<header id="navbar">
+  <a class="logo" href="index.html" aria-label="CinePlay home">
+    <svg viewBox="0 0 64 64" fill="currentColor"><rect width="64" height="64" rx="12"/><path d="M26 20l18 12-18 12z" fill="#fff"/></svg>
+    CinePlay
+  </a>
+  <nav class="nav-links">
+    <a href="index.html">Home</a>
+  </nav>
+</header>
+
+<div class="detail-bg" id="detailBg"></div>
+
+<main class="detail-wrap">
+  <div id="detailLoading" class="detail-loading">
+    <div class="spinner"></div>
+    <div>Loading…</div>
+  </div>
+
+  <div id="detailContent" style="display:none">
+    <h1 class="d-title" id="dTitle"></h1>
+    <div class="d-qline" id="dQualityLine"></div>
+    <div class="d-pills" id="dPills"></div>
+
+    <div class="d-poster"><img id="dPoster" alt="Poster"></div>
+
+    <div class="d-info" id="dInfo"></div>
+
+    <div id="dShotsWrap" style="display:none">
+      <h3 class="d-sec-title">: Screen-Shots :</h3>
+      <div class="shots-grid" id="dShots"></div>
+    </div>
+
+    <div id="dWatchWrap">
+      <h3 class="d-sec-title">: Watch / Download :</h3>
+      <div id="dWatch"></div>
+    </div>
+
+    <div id="dStoryWrap" style="display:none">
+      <h3 class="d-sec-title">: Storyline :</h3>
+      <div class="d-story" id="dStory"></div>
+    </div>
+
+    <div>
+      <h3 class="d-sec-title">Did you like it?</h3>
+      <div class="react-row" id="dReact"></div>
+      <div class="react-hint">Reactions are counted on this device only.</div>
+    </div>
+
+    <div id="dMltWrap" style="display:none">
+      <h3 class="d-sec-title">More Like This</h3>
+      <div class="mlt-grid" id="dMlt"></div>
+    </div>
+  </div>
+
+  <div id="detailError" class="watch-error" style="display:none">
+    <h2>Movie not found</h2>
+    <p>This title doesn't exist or couldn't be loaded.</p>
+    <p style="margin-top:18px"><a href="index.html" style="color:#e50914;font-weight:700">← Back to home</a></p>
+  </div>
+</main>
+
+<div id="lightbox"><img id="lightboxImg" alt="Screenshot"></div>
+<div id="toast"></div>
+
+<footer>
+  <div class="f-logo">CINEPLAY</div>
+  <p>&copy; 2026 CinePlay. All rights reserved.</p>
+</footer>
+
+<script src="js/movie.js?v=20261011f"></script>
+</body>
+</html>

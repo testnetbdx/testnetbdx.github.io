@@ -570,3 +570,78 @@ table.movies tr:hover td { background: #1b1b1b; }
   .btn { padding: 10px 18px; font-size: 14px; }
   .hero-dots { display: none; }
 }
+
+/* ============================================================
+   CinePlay — movie detail page + additions (v20261011f)
+   ============================================================ */
+.detail-bg {
+  position: fixed; inset: 0; z-index: -1;
+  background-size: cover; background-position: center top;
+  filter: blur(28px) brightness(.32);
+  transform: scale(1.12);
+}
+.detail-wrap { max-width: 920px; margin: 0 auto; padding: calc(var(--nav-h) + 26px) 20px 70px; }
+.detail-loading { text-align: center; padding: 90px 0; color: var(--muted); }
+.detail-loading .spinner { margin: 0 auto 14px; }
+
+.d-title { font-size: 32px; font-weight: 800; line-height: 1.25; }
+.d-year { color: var(--muted); font-weight: 400; }
+.d-qline { color: #d6d6d6; margin: 10px 0 4px; font-size: 14px; }
+.d-pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
+.d-poster { text-align: center; margin: 24px 0; }
+.d-poster img { max-width: 330px; width: 100%; margin: 0 auto; border-radius: 10px; box-shadow: 0 14px 44px rgba(0,0,0,.65); }
+
+.d-info { background: rgba(18,18,18,.82); border: 1px solid #2c2c2c; border-radius: 10px; padding: 16px 22px; margin-bottom: 8px; }
+.d-info .irow { display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px solid #262626; font-size: 14px; }
+.d-info .irow:last-child { border-bottom: none; }
+.d-info .ilabel { width: 104px; flex-shrink: 0; color: var(--red); font-weight: 700; }
+
+.d-sec-title { text-align: center; color: #ff6b6b; font-weight: 800; margin: 30px 0 14px; font-size: 16px; letter-spacing: .3px; }
+.shots-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.shots-grid img { width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 8px; cursor: zoom-in; border: 1px solid #2c2c2c; }
+.shots-grid img:hover { border-color: #555; }
+
+.qrow { display: flex; align-items: center; gap: 12px; background: rgba(18,18,18,.82); border: 1px solid #2c2c2c; border-radius: 8px; padding: 13px 16px; margin-bottom: 10px; flex-wrap: wrap; }
+.qrow .qlabel { color: #4da3ff; font-weight: 700; font-size: 15px; }
+.qrow .qsize { color: #999; font-size: 13px; }
+.qrow .spacer { flex: 1; }
+.btn-watch { background: var(--red); color: #fff; padding: 9px 22px; border-radius: 6px; font-weight: 700; font-size: 14px; }
+.btn-watch:hover { background: var(--red-dark); }
+.btn-dl { background: #2a2a2a; color: #fff; padding: 9px 22px; border-radius: 6px; font-weight: 700; font-size: 14px; border: 1px solid #3d3d3d; }
+.btn-dl:hover { border-color: #777; }
+
+.d-story { background: rgba(18,18,18,.82); border: 1px solid #2c2c2c; border-radius: 10px; padding: 18px 22px; line-height: 1.75; color: #ddd; font-size: 14px; }
+
+.react-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 6px 0 6px; }
+.react-btn { background: #1e1e1e; border: 1px solid #383838; color: #ddd; border-radius: 20px; padding: 9px 16px; font-size: 13px; font-weight: 600; }
+.react-btn:hover { border-color: #777; }
+.react-btn.active { background: var(--red); border-color: var(--red); color: #fff; }
+.react-btn .cnt { opacity: .75; margin-left: 7px; font-size: 12px; }
+.react-hint { text-align: center; color: #777; font-size: 11px; margin-bottom: 4px; }
+
+.mlt-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.mlt-grid .card { display: block; }
+
+#lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.93); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 24px; cursor: zoom-out; }
+#lightbox.show { display: flex; }
+#lightbox img { max-width: 92vw; max-height: 90vh; border-radius: 8px; }
+
+/* ---- admin: screenshots + quality rows ---- */
+.shots-list { display: flex; flex-wrap: wrap; gap: 10px; }
+.shot-thumb { position: relative; width: 110px; }
+.shot-thumb img { width: 110px; height: 70px; object-fit: cover; border-radius: 6px; border: 1px solid #3a3a3a; }
+.shot-x { position: absolute; top: -8px; right: -8px; width: 22px; height: 22px; border-radius: 50%; background: #e50914; color: #fff; font-size: 11px; line-height: 1; padding: 0; }
+#movieModal .qrow { background: #1b1b1b; padding: 10px; gap: 8px; }
+#movieModal .qrow input, #movieModal .qrow select { background: #232323; border: 1px solid #3a3a3a; color: #fff; padding: 9px 10px; border-radius: 6px; font-size: 13px; }
+#movieModal .qq-label { width: 84px; flex: 0 0 84px; }
+#movieModal .qq-size { width: 96px; flex: 0 0 96px; }
+#movieModal .qq-url { flex: 1; min-width: 150px; }
+#movieModal .qq-kind { width: 124px; flex: 0 0 124px; }
+#movieModal .qrow-x { padding: 8px 12px; font-size: 12px; }
+
+@media (max-width: 640px) {
+  .shots-grid { grid-template-columns: repeat(2, 1fr); }
+  .mlt-grid { grid-template-columns: repeat(2, 1fr); }
+  .d-title { font-size: 25px; }
+  .d-info .ilabel { width: 88px; }
+}

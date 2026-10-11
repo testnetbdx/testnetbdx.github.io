@@ -64,6 +64,7 @@ function renderInfo(movie) {
   $('#watchTitle').textContent = movie.title;
   const parts = [];
   if (movie.rating != null) parts.push(`<span class="match">${Math.round(Number(movie.rating) * 10)}% Match</span>`);
+  if (movie._qlabel) parts.push(`<span class="tag">${esc(movie._qlabel)}</span>`);
   if (movie.year) parts.push(esc(movie.year));
   if (movie.duration) parts.push(esc(movie.duration));
   if (movie.genre) parts.push(esc(movie.genre));
@@ -78,7 +79,8 @@ async function init() {
     else window.location.href = 'index.html';
   });
 
-  const id = new URLSearchParams(window.location.search).get('id');
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get('id');
   if (!id) {
     $('#playerLoading').remove();
     $('#watchError').style.display = 'block';
@@ -89,11 +91,22 @@ async function init() {
     const res = await fetch('data/movies.json', { cache: 'no-store' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const list = await res.json();
-    const movie = Array.isArray(list) ? list.find((m) => String(m.id) === String(id)) : null;
+    let movie = Array.isArray(list) ? list.find((m) => String(m.id) === String(id)) : null;
     if (!movie) {
       $('#playerLoading').remove();
       $('#watchError').style.display = 'block';
       return;
+    }
+    // ?q=<index> → play that entry from the movie's qualities array
+    const qi = parseInt(params.get('q'), 10);
+    if (Array.isArray(movie.qualities) && Number.isInteger(qi) &&
+        movie.qualities[qi] && movie.qualities[qi].url) {
+      const q = movie.qualities[qi];
+      movie = Object.assign({}, movie, {
+        video_url: q.url,
+        video_type: q.kind || 'direct',
+        _qlabel: q.label || ''
+      });
     }
     renderPlayer(movie);
     renderInfo(movie);

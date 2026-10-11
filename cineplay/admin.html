@@ -6,7 +6,7 @@
 <title>Admin — CinePlay</title>
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%23E50914'/><path d='M26 20l18 12-18 12z' fill='white'/></svg>">
-<link rel="stylesheet" href="css/style.css?v=20261011e">
+<link rel="stylesheet" href="css/style.css?v=20261011f">
 </head>
 <body class="admin-page">
 
@@ -185,6 +185,39 @@
         <div class="hint">For series — e.g. S01 EP04.</div>
       </div>
       <div class="field">
+        <label for="fImdb">IMDb rating</label>
+        <input type="text" id="fImdb" placeholder="7.9/10">
+      </div>
+      <div class="field">
+        <label for="fStars">Stars</label>
+        <input type="text" id="fStars" placeholder="Actor One, Actor Two">
+      </div>
+      <div class="field">
+        <label for="fDirector">Director</label>
+        <input type="text" id="fDirector" placeholder="Director name">
+      </div>
+      <div class="field">
+        <label for="fQualityInfo">Quality info</label>
+        <input type="text" id="fQualityInfo" placeholder="WEB-DL 1080p | 720p | 480p">
+        <div class="hint">Shown on the detail page header + info block.</div>
+      </div>
+      <div class="field full">
+        <label>Screenshots</label>
+        <input type="file" id="fShotsFile" accept="image/*" multiple>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <input type="url" id="fShotsUrl" placeholder="…or paste image URL" style="flex:1">
+          <button type="button" class="btn-outline" id="fShotsAdd">Add</button>
+        </div>
+        <div class="shots-list" id="fShotsList" style="margin-top:10px"></div>
+        <div class="hint">Uploaded to <code>cineplay/screenshots/</code> in the repo. Shown in the detail page gallery.</div>
+      </div>
+      <div class="field full">
+        <label>Watch / Download qualities</label>
+        <div id="fQualList"></div>
+        <button type="button" class="btn-outline" id="fQualAdd" style="margin-top:8px">+ Add quality</button>
+        <div class="hint">Each row = one 480p / 720p / 1080p button on the detail page. Empty rows are ignored.</div>
+      </div>
+      <div class="field">
         <label for="fPosterFile">Poster image</label>
         <input type="file" id="fPosterFile" accept="image/*">
         <input type="text" id="fPosterUrl" placeholder="…or paste image URL" style="margin-top:8px">
@@ -280,6 +313,6 @@
 
 <div id="toast"></div>
 
-<script src="js/admin.js?v=20261011e"></script>
+<script src="js/admin.js?v=20261011f"></script>
 </body>
 </html>

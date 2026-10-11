@@ -107,6 +107,11 @@ async function fetchMovies() {
   return list;
 }
 
+/* ---------------- Detail page navigation ---------------- */
+function goDetail(id) {
+  window.location.href = 'movie.html?id=' + encodeURIComponent(id);
+}
+
 /* ---------------- Billboard hero ---------------- */
 function renderHero() {
   const featured = allMovies.filter((m) => m.is_featured);
@@ -262,7 +267,7 @@ function renderRows() {
 
   // wire up cards + scroll buttons
   $$('#rows .card, #rows .top10-card, #rows .search-card').forEach((el) =>
-    el.addEventListener('click', () => openModal(el.dataset.id)));
+    el.addEventListener('click', () => goDetail(el.dataset.id)));
   $$('#rows .row').forEach((row) => {
     const scroller = row.querySelector('.row-scroller');
     row.querySelector('.row-btn.left').addEventListener('click', () =>
@@ -286,7 +291,6 @@ function setActiveNav(key) {
 
 function showCategory(cat) {
   activeCategory = cat;
-  closeModal();
   $('#searchOverlay').classList.remove('show');
   $('#billboard').style.display = 'none';
   $('#rows').style.display = 'none';
@@ -300,7 +304,7 @@ function showCategory(cat) {
          <h2>No titles here yet</h2>
          <p>New ${esc(label.toLowerCase())} titles are coming soon. Check back later!</p>
        </div>`;
-  $$('#browseGrid .card').forEach((el) => el.addEventListener('click', () => openModal(el.dataset.id)));
+  $$('#browseGrid .card').forEach((el) => el.addEventListener('click', () => goDetail(el.dataset.id)));
   setActiveNav(cat);
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -314,91 +318,6 @@ function showHome() {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-/* ---------------- Detail modal ---------------- */
-function openModal(id) {
-  const m = allMovies.find((x) => x.id === id);
-  if (!m) return;
-  const img = heroImage(m);
-  const match = matchPct(m);
-  const g = primaryGenre(m);
-  const similar = allMovies
-    .filter((x) => x.id !== m.id && g && primaryGenre(x) === g)
-    .slice(0, 6);
-  const listed = inMyList(m.id);
-
-  $('#modalCard').innerHTML = `
-    <button class="modal-close" id="modalClose">✕</button>
-    <div class="modal-hero">
-      ${img ? `<img src="${esc(img)}" alt="${esc(m.title)}" onerror="this.remove()">` : ''}
-      <div class="shade"></div>
-      <div class="modal-hero-content">
-        <h2>${esc(m.title)}</h2>
-        <div class="modal-actions">
-          <button class="btn btn-play" data-play="${esc(m.id)}">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Play
-          </button>
-          <button class="btn-circle${listed ? ' active' : ''}" id="mylistBtn" title="${listed ? 'Remove from My List' : 'Add to My List'}">${listed ? '✓' : '+'}</button>
-        </div>
-      </div>
-    </div>
-    <div class="modal-body">
-      <div class="modal-main">
-        <div class="modal-meta">
-          ${match ? `<span class="match">${match}</span>` : ''}
-          ${m.year ? `<span>${esc(m.year)}</span>` : ''}
-          ${m.episode_info ? `<span>${esc(m.episode_info)}</span>` : ''}
-          ${m.duration ? `<span>${esc(m.duration)}</span>` : ''}
-          ${m.genre ? `<span class="tag">${esc(m.genre)}</span>` : ''}
-          ${qualityBadgesInline(m)}
-        </div>
-        <p class="modal-desc">${esc(m.description || 'No description available.')}</p>
-        ${similar.length ? `
-        <div class="mlt">
-          <h3>More Like This</h3>
-          <div class="mlt-grid">
-            ${similar.map((s) => `
-              <div class="mlt-card" data-id="${esc(s.id)}">
-                ${s.backdrop_url || s.poster_url ? `<img src="${esc(s.backdrop_url || s.poster_url)}" alt="${esc(s.title)}" loading="lazy" onerror="this.remove()">` : ''}
-                <div class="mlt-info">
-                  <div class="mlt-meta">
-                    ${matchPct(s) ? `<span class="match">${matchPct(s)}</span>` : ''}
-                    ${s.year ? `<span>${esc(s.year)}</span>` : ''}
-                  </div>
-                  <h4>${esc(s.title)}</h4>
-                  <p>${esc(s.description || '')}</p>
-                </div>
-              </div>`).join('')}
-          </div>
-        </div>` : ''}
-      </div>
-      <div class="modal-side">
-        <p><b>Genre:</b> ${esc(m.genre || '—')}</p>
-        <p style="margin-top:8px"><b>Rating:</b> ${m.rating != null ? esc(m.rating) + ' / 10' : '—'}</p>
-        <p style="margin-top:8px"><b>Category:</b> ${esc(CATEGORY_LABELS[movieCategory(m)])}</p>
-        ${m.languages ? `<p style="margin-top:8px"><b>Languages:</b> ${esc(m.languages)}</p>` : ''}
-      </div>
-    </div>`;
-
-  $('#modal').classList.add('show');
-  document.body.style.overflow = 'hidden';
-  $('#modalClose').addEventListener('click', closeModal);
-  $('#mylistBtn').addEventListener('click', () => {
-    toggleMyList(m.id);
-    const now = inMyList(m.id);
-    const btn = $('#mylistBtn');
-    btn.classList.toggle('active', now);
-    btn.textContent = now ? '✓' : '+';
-  });
-  $$('#modalCard [data-play]').forEach((b) =>
-    b.addEventListener('click', () => { window.location.href = 'watch.html?id=' + encodeURIComponent(b.dataset.play); }));
-  $$('#modalCard .mlt-card').forEach((c) =>
-    c.addEventListener('click', () => openModal(c.dataset.id)));
-}
-
-function closeModal() {
-  $('#modal').classList.remove('show');
-  document.body.style.overflow = '';
-}
 
 /* ---------------- Search ---------------- */
 function doSearch(q) {
@@ -426,7 +345,7 @@ function doSearch(q) {
       overlay.classList.remove('show');
       $('#searchInput').value = '';
       $('#searchBox').classList.remove('open');
-      openModal(c.dataset.id);
+      goDetail(c.dataset.id);
     }));
 }
 
@@ -480,13 +399,9 @@ async function init() {
   });
   input.addEventListener('input', () => doSearch(input.value));
 
-  // modal close: backdrop click + Esc
-  $('#modal').addEventListener('click', (e) => { if (e.target.id === 'modal') closeModal(); });
+  // Esc closes search
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      if ($('#modal').classList.contains('show')) closeModal();
-      $('#searchOverlay').classList.remove('show');
-    }
+    if (e.key === 'Escape') $('#searchOverlay').classList.remove('show');
   });
 
   // hero buttons (delegated, content re-renders)
@@ -494,7 +409,7 @@ async function init() {
     const play = e.target.closest('[data-play]');
     const info = e.target.closest('[data-info]');
     if (play) window.location.href = 'watch.html?id=' + encodeURIComponent(play.dataset.play);
-    else if (info) openModal(info.dataset.info);
+    else if (info) goDetail(info.dataset.info);
   });
 }
 

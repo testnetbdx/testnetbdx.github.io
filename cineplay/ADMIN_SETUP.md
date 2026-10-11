@@ -82,6 +82,18 @@ Admin panel thekei phone gallery-r boro video file (3-10GB porjonto) **sorasori 
 - **"YouTube API daily limit sesh"** → quota sesh, kal try koro.
 - **"Session expired — abar Connect koro"** → Connect YouTube abar chap dao.
 
+## Detail page fields (movie.html)
+
+Poster-e click korle ekhon full detail page khule. Admin panel-er form-e notun field:
+
+- **IMDb rating** — e.g. `7.9/10` → info block-e dekhay.
+- **Stars** — comma diye, e.g. `Actor One, Actor Two`.
+- **Director** — director-er nam.
+- **Quality info** — e.g. `WEB-DL 1080p | 720p | 480p` → page header + info block-e dekhay. Khali rakhle quality badges + language diye auto-compose hobe.
+- **Screenshots** — gallery theke multiple image select koro (upload hoy `cineplay/screenshots/`-e), ba image URL paste kore **Add** chap dao. Thumbnail-e ✕ diye remove kora jay.
+- **Watch / Download qualities** — **+ Add quality** diye row barao: label (`480p`), size (`[520MB]`), URL, kind (YouTube / Direct MP4 / Embed). Detail page-e proti row-te ▶ Watch + ⬇ Download button ashbe. Khali row ignore hoy.
+- Shob field optional — na dile detail page gracefully skip kore (purono movie-o thik dekhabe).
+
 ## Kichu kotha
 
 - **Save korle site-e live hote ~1 min lagte pare** (GitHub Pages rebuild hote somoy ney).
@@ -90,3 +102,13 @@ Admin panel thekei phone gallery-r boro video file (3-10GB porjonto) **sorasori 
 - **Token kauke diben na**, kothao post korben na.
 - Token code-e ba repo-te **save hoy na** — shudhu tomar browser-er session-e thake. Tab/browser bondho korle muche jay, tokhon abar paste korte hobe.
 - Token revoke korte chaile: GitHub → Settings → Developer settings → Personal access tokens → token-tar pashe **Delete**.
+
+## Quality badges, category, languages (notun field)
+
+Movie add/edit form-e ekhon aro field ache:
+- **Quality badges**: 4K, FHD, HD, BD, HDR, DV, 10Bit, SDR — tick dao; site-er card-e upore-dan dike rongin pill hishebe dekhabe (4KHDHub style).
+- **Category**: Movie / Web Series / Anime / OTT — site-er nav (Movies / Web Series / Anime) theke filter kora jay; category select korle poster grid view ashe.
+- **Languages**: comma diye likho (Hindi, English) — card hover-e tag hishebe + search-e match kore.
+- **Episode info**: series-er jonno (S01 EP04) — card-er niche year-er pashe dekhabe.
+
+Purono movie-te ei field na thakleo shomossha nai — khali thakle badge/pill dekhabe na, site thikmoto cholbe (backward compatible).

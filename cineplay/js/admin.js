@@ -15,6 +15,8 @@ let movies = [];
 let moviesSha = null;   // SHA of data/movies.json (null = file doesn't exist yet)
 let activeVtab = 'device';
 let busy = false;
+let formShots = [];       // screenshot URLs for the movie being edited
+let pendingShotFiles = []; // newly picked screenshot File objects (uploaded on save)
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
@@ -683,7 +685,7 @@ function renderDashboard() {
     <tr>
       <td>${m.poster_url ? `<img class="m-thumb" src="${esc(m.poster_url)}" alt="" loading="lazy" onerror="this.remove()">` : ''}</td>
       <td><div class="m-title">${esc(m.title)}</div>
-        <div class="m-pills"><span class="pill cat">${esc(CATEGORY_LABELS[movieCategory(m)])}</span>${qualityList(m).map((q) => `<span class="pill">${esc(q)}</span>`).join('')}</div>
+        <div class="m-pills"><span class="pill cat">${esc(CATEGORY_LABELS[movieCategory(m)])}</span>${qualityList(m).map((q) => `<span class="pill">${esc(q)}</span>`).join('')}${Array.isArray(m.screenshots) && m.screenshots.length ? `<span class="pill">📷 ${m.screenshots.length}</span>` : ''}${Array.isArray(m.qualities) && m.qualities.length ? `<span class="pill">▶ ${m.qualities.length}Q</span>` : ''}</div>
         <div class="m-sub">${m.duration ? esc(m.duration) + ' • ' : ''}${m.rating != null ? '★ ' + esc(m.rating) : ''}${m.episode_info ? ' • ' + esc(m.episode_info) : ''}</div></td>
       <td>${m.year ? esc(m.year) : '—'}</td>
       <td>${esc(m.genre || '—')}</td>
@@ -792,6 +794,17 @@ function openForm(movie) {
   $('#fCategory').value = movie ? movieCategory(movie) : 'movie';
   $('#fLanguages').value = movie ? movie.languages || '' : '';
   $('#fEpisode').value = movie ? movie.episode_info || '' : '';
+  $('#fImdb').value = movie ? movie.imdb_rating || '' : '';
+  $('#fStars').value = movie ? movie.stars || '' : '';
+  $('#fDirector').value = movie ? movie.director || '' : '';
+  $('#fQualityInfo').value = movie ? movie.quality_info || '' : '';
+  // screenshots + qualities working state
+  formShots = movie && Array.isArray(movie.screenshots) ? [...movie.screenshots.filter(Boolean)] : [];
+  pendingShotFiles = [];
+  $('#fShotsFile').value = '';
+  $('#fShotsUrl').value = '';
+  renderShotsList();
+  renderQualRows(movie && Array.isArray(movie.qualities) ? movie.qualities : []);
   $('#fPosterFile').value = '';
   $('#fBackdropFile').value = '';
   $('#fPosterUrl').value = movie ? movie.poster_url || '' : '';
@@ -860,6 +873,59 @@ async function uploadImage(kind, file) {
   return `https://${gh.owner}.github.io/cineplay/${kind}/${name}`;
 }
 
+/* ---------------- Screenshots (form working state) ---------------- */
+function renderShotsList() {
+  const el = $('#fShotsList');
+  if (!el) return;
+  const items = [
+    ...formShots.map((u, i) => ({ type: 'url', idx: i, src: u })),
+    ...pendingShotFiles.map((f, i) => ({ type: 'file', idx: i, src: URL.createObjectURL(f) }))
+  ];
+  el.innerHTML = items.length ? items.map((it) => `
+    <div class="shot-thumb">
+      <img src="${esc(it.src)}" alt="Screenshot" loading="lazy" onerror="this.remove()">
+      <button type="button" class="shot-x" data-shot-type="${it.type}" data-shot-idx="${it.idx}" title="Remove">✕</button>
+    </div>`).join('')
+    : '<div class="hint">No screenshots yet.</div>';
+}
+
+/* ---------------- Qualities rows (form working state) ---------------- */
+function qualRowHTML(q) {
+  q = q || {};
+  const kind = q.kind || 'direct';
+  return `<div class="qrow">
+    <input type="text" class="qq-label" placeholder="480p" value="${esc(q.label || '')}">
+    <input type="text" class="qq-size" placeholder="[520MB]" value="${esc(q.size || '')}">
+    <input type="url" class="qq-url" placeholder="https://…" value="${esc(q.url || '')}">
+    <select class="qq-kind">
+      <option value="youtube"${kind === 'youtube' ? ' selected' : ''}>YouTube</option>
+      <option value="direct"${kind === 'direct' ? ' selected' : ''}>Direct MP4</option>
+      <option value="embed"${kind === 'embed' ? ' selected' : ''}>Embed</option>
+    </select>
+    <button type="button" class="btn-outline qrow-x" title="Remove row">✕</button>
+  </div>`;
+}
+function renderQualRows(list) {
+  const el = $('#fQualList');
+  if (!el) return;
+  el.innerHTML = (list && list.length ? list : [null]).map((q) => qualRowHTML(q)).join('');
+}
+function readQualRows() {
+  const out = [];
+  $$('#fQualList .qrow').forEach((r) => {
+    const label = r.querySelector('.qq-label').value.trim();
+    const url = r.querySelector('.qq-url').value.trim();
+    if (!label || !url) return; // empty rows are ignored
+    out.push({
+      label,
+      size: r.querySelector('.qq-size').value.trim(),
+      url,
+      kind: r.querySelector('.qq-kind').value || 'direct'
+    });
+  });
+  return out;
+}
+
 function newId() {
   return 'm_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
@@ -906,6 +972,18 @@ async function saveMovie() {
     const bf = $('#fBackdropFile').files[0];
     if (bf) backdrop_url = await uploadImage('backdrops', bf);
 
+    // ---- screenshots: upload newly picked files, keep existing URLs ----
+    saveBtn.textContent = 'Uploading screenshots…';
+    const newShotUrls = [];
+    for (const f of pendingShotFiles) {
+      newShotUrls.push(await uploadImage('screenshots', f));
+    }
+    const screenshots = [...formShots, ...newShotUrls];
+    pendingShotFiles = [];
+
+    // ---- per-quality watch/download rows ----
+    const qualities = readQualRows();
+
     const yearVal = parseInt($('#fYear').value, 10);
     const ratingVal = parseFloat($('#fRating').value);
     const now = new Date().toISOString();
@@ -922,6 +1000,12 @@ async function saveMovie() {
       category: $('#fCategory').value || 'movie',
       languages: $('#fLanguages').value.trim(),
       episode_info: $('#fEpisode').value.trim(),
+      imdb_rating: $('#fImdb').value.trim(),
+      stars: $('#fStars').value.trim(),
+      director: $('#fDirector').value.trim(),
+      quality_info: $('#fQualityInfo').value.trim(),
+      screenshots,
+      qualities,
       poster_url,
       backdrop_url,
       video_url,
@@ -995,6 +1079,36 @@ function init() {
     previewImg($('#fBackdropFile'), $('#fBackdropUrl'), $('#backdropPreview')));
   $('#fBackdropUrl').addEventListener('input', () =>
     previewImg($('#fBackdropFile'), $('#fBackdropUrl'), $('#backdropPreview')));
+
+  // screenshots: pick files / paste URL / remove
+  $('#fShotsFile').addEventListener('change', (e) => {
+    pendingShotFiles.push(...Array.from(e.target.files || []));
+    e.target.value = '';
+    renderShotsList();
+  });
+  $('#fShotsAdd').addEventListener('click', () => {
+    const u = $('#fShotsUrl').value.trim();
+    if (!u) return;
+    formShots.push(u);
+    $('#fShotsUrl').value = '';
+    renderShotsList();
+  });
+  $('#fShotsList').addEventListener('click', (e) => {
+    const x = e.target.closest('.shot-x');
+    if (!x) return;
+    if (x.dataset.shotType === 'url') formShots.splice(Number(x.dataset.shotIdx), 1);
+    else pendingShotFiles.splice(Number(x.dataset.shotIdx), 1);
+    renderShotsList();
+  });
+
+  // per-quality rows
+  $('#fQualAdd').addEventListener('click', () => {
+    $('#fQualList').insertAdjacentHTML('beforeend', qualRowHTML(null));
+  });
+  $('#fQualList').addEventListener('click', (e) => {
+    const x = e.target.closest('.qrow-x');
+    if (x) x.closest('.qrow').remove();
+  });
 
   $('#moviesTbody').addEventListener('click', (e) => {
     const edit = e.target.closest('[data-edit]');
