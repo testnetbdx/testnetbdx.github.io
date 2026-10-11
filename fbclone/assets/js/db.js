@@ -297,13 +297,6 @@ async function adminSetUser(id, patch) {
   const { error } = await sb.from('profiles').update(patch).eq('id', id);
   if (error) throw error;
 }
-async function adminWipeUser(id) {
-  // delete all posts (cascades comments/likes), then ban the profile
-  const { error: e1 } = await sb.from('posts').delete().eq('author_id', id);
-  if (e1) throw e1;
-  const { error: e2 } = await sb.from('profiles').update({ banned: true, is_admin: false }).eq('id', id);
-  if (e2) throw e2;
-}
 async function adminGetPosts() {
   const { data: posts, error } = await sb.from('posts').select('*')
     .order('created_at', { ascending: false }).limit(200);
