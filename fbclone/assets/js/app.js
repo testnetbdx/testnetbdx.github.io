@@ -71,6 +71,9 @@ async function boot() {
   try {
     await bootSession();
   } catch (e) { console.error(e); }
+  sb.auth.onAuthStateChange((event) => {
+    if (event === 'PASSWORD_RECOVERY') renderAuth('reset');
+  });
   let st;
   try {
     st = await getSettings();
@@ -113,6 +116,46 @@ function renderSchemaMissing() {
 }
 
 /* ---------------- Auth ---------------- */
+function authCardHTML(mode, regOpen) {
+  if (mode === 'login') return `
+        <input id="li_email" class="inp" type="email" placeholder="Email address" autocomplete="username">
+        <input id="li_pass" class="inp" type="password" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()" autocomplete="current-password">
+        <button class="btn-primary" id="li_btn" onclick="doLogin()">Log in</button>
+        <div class="auth-link"><a href="#" onclick="event.preventDefault();renderAuth('forgot')">Forgot password?</a></div>
+        <hr class="auth-hr">
+        ${regOpen ? `<button class="btn-green" onclick="renderAuth('signup')">Create new account</button>`
+                  : `<div class="muted" style="text-align:center">Registrations are currently closed.</div>`}`;
+  if (mode === 'verify') return `
+        <div class="su-title">\u2709\uFE0F Check your email</div>
+        <div class="su-sub">We sent a verification link to<br><b>${esc(S.pendingEmail || '')}</b>.<br>Click the link to activate your account.</div>
+        <div class="muted" style="text-align:center;font-size:13px">Didn't get it? Check spam, or:</div>
+        <button class="btn-ghost" id="rs_btn" onclick="doResend()">Resend verification email</button>
+        <div class="auth-link"><a href="#" onclick="event.preventDefault();renderAuth('login')">Back to log in</a></div>`;
+  if (mode === 'forgot') return `
+        <div class="su-title">Find your account</div>
+        <div class="su-sub">Enter your Gmail address to get a password reset link.</div>
+        <input id="fp_email" class="inp" type="email" placeholder="Gmail address" onkeydown="if(event.key==='Enter')doForgot()">
+        <button class="btn-primary" id="fp_btn" onclick="doForgot()">Send reset link</button>
+        <div class="auth-link"><a href="#" onclick="event.preventDefault();renderAuth('login')">Back to log in</a></div>`;
+  if (mode === 'forgot-sent') return `
+        <div class="su-title">\u2709\uFE0F Reset link sent</div>
+        <div class="su-sub">We sent a password reset link to<br><b>${esc(S.pendingEmail || '')}</b>.<br>Click the link in the email, then set a new password.</div>
+        <div class="auth-link"><a href="#" onclick="event.preventDefault();renderAuth('login')">Back to log in</a></div>`;
+  if (mode === 'reset') return `
+        <div class="su-title">Set new password</div>
+        <div class="su-sub">Enter a new password for your account.</div>
+        <input id="np_pass" class="inp" type="password" placeholder="New password (min 6 chars)" onkeydown="if(event.key==='Enter')doResetPassword()">
+        <button class="btn-primary" id="np_btn" onclick="doResetPassword()">Set new password</button>`;
+  return `
+        <div class="su-title">Sign Up</div>
+        <div class="su-sub">It's quick and easy.</div>
+        <input id="su_name" class="inp" placeholder="Full name">
+        <input id="su_email" class="inp" type="email" placeholder="Gmail address">
+        <div class="muted" style="font-size:12px;margin-top:-8px">Only @gmail.com addresses allowed.</div>
+        <input id="su_pass" class="inp" type="password" placeholder="New password" onkeydown="if(event.key==='Enter')doSignup()">
+        <button class="btn-green" id="su_btn" onclick="doSignup()">Sign Up</button>
+        <div class="auth-link"><a href="#" onclick="event.preventDefault();renderAuth('login')">Already have an account?</a></div>`;
+}
 function renderAuth(mode) {
   mode = mode || 'login';
   const st = S.settings || { site_name: 'FaceClone', tagline: '' };
@@ -129,31 +172,8 @@ function renderAuth(mode) {
       </div>
     </div>
     <div class="auth-card">
-      ${mode === 'login' ? `
-        <input id="li_email" class="inp" type="email" placeholder="Email address" autocomplete="username">
-        <input id="li_pass" class="inp" type="password" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()" autocomplete="current-password">
-        <button class="btn-primary" id="li_btn" onclick="doLogin()">Log in</button>
-        <hr class="auth-hr">
-        ${regOpen ? `<button class="btn-green" onclick="renderAuth('signup')">Create new account</button>`
-                  : `<div class="muted" style="text-align:center">Registrations are currently closed.</div>`}
-      ` : (mode === 'verify' ? `
-        <div class="su-title">\u2709\uFE0F Check your email</div>
-        <div class="su-sub">We sent a verification link to<br><b>${esc(S.pendingEmail || '')}</b>.<br>Click the link to activate your account.</div>
-        <div class="muted" style="text-align:center;font-size:13px">Didn't get it? Check spam, or:</div>
-        <button class="btn-ghost" id="rs_btn" onclick="doResend()">Resend verification email</button>
-        <div class="auth-link"><a href="#" onclick="event.preventDefault();renderAuth('login')">Back to log in</a></div>
-      ` : `
-        <div class="su-title">Sign Up</div>
-        <div class="su-sub">It's quick and easy.</div>
-        <input id="su_name" class="inp" placeholder="Full name">
-        <input id="su_email" class="inp" type="email" placeholder="Gmail address">
-        <div class="muted" style="font-size:12px;margin-top:-8px">Only @gmail.com addresses allowed.</div>
-        <input id="su_pass" class="inp" type="password" placeholder="New password" onkeydown="if(event.key==='Enter')doSignup()">
-        <button class="btn-green" id="su_btn" onclick="doSignup()">Sign Up</button>
-        <div class="auth-link"><a href="#" onclick="event.preventDefault();renderAuth('login')">Already have an account?</a></div>
-      `)}
+      ${authCardHTML(mode, regOpen)}
     </div>
-  </div>
   <div class="auth-foot"><a href="admin.html">Admin Panel</a> · FaceClone — powered by Supabase</div>`;
 }
 async function doLogin() {
@@ -186,6 +206,27 @@ async function doResend() {
   try { await resendVerification(S.pendingEmail); toast('Verification email resent!'); }
   catch (e) { err(e); }
   if (btn) { btn.disabled = false; btn.textContent = 'Resend verification email'; }
+}
+async function doForgot() {
+  const email = $('#fp_email').value.trim();
+  if (!/@gmail\.com$/i.test(email)) { toast('Enter your @gmail.com address.'); return; }
+  const btn = $('#fp_btn'); btn.disabled = true; btn.textContent = 'Sending...';
+  try {
+    await sendPasswordReset(email);
+    S.pendingEmail = email;
+    renderAuth('forgot-sent');
+    toast('Reset link sent!');
+  } catch (e) { err(e); btn.disabled = false; btn.textContent = 'Send reset link'; }
+}
+async function doResetPassword() {
+  const pass = $('#np_pass').value;
+  if (!pass || pass.length < 6) { toast('Password must be at least 6 characters.'); return; }
+  const btn = $('#np_btn'); btn.disabled = true; btn.textContent = 'Saving...';
+  try {
+    await updatePassword(pass);
+    S.followingCache = await followingIds().catch(() => []);
+    renderApp(); toast('Password updated! Welcome back.');
+  } catch (e) { err(e); btn.disabled = false; btn.textContent = 'Set new password'; }
 }
 async function logout() {
   teardownRealtime();

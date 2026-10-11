@@ -38,6 +38,16 @@ async function resendVerification(email) {
   const { error } = await sb.auth.resend({ type: 'signup', email });
   if (error) throw error;
 }
+async function sendPasswordReset(email) {
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: 'https://testnetbdx.github.io/fbclone/',
+  });
+  if (error) throw error;
+}
+async function updatePassword(newPass) {
+  const { error } = await sb.auth.updateUser({ password: newPass });
+  if (error) throw error;
+}
 async function signIn(email, password) {
   const { error } = await sb.auth.signInWithPassword({ email, password });
   if (error) throw error;
