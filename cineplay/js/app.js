@@ -1,9 +1,9 @@
 /* ============================================================
    CinePlay — public site logic
-   Fetches movies from Supabase and renders the Netflix-style UI.
+   Fetches movies from data/movies.json (GitHub-as-database —
+   no backend, no keys) and renders the Netflix-style UI.
    My List is stored in localStorage (per-device).
    ============================================================ */
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let allMovies = [];
 let dbError = false;
@@ -66,9 +66,13 @@ function primaryGenre(m) {
 function heroImage(m) { return m.backdrop_url || m.poster_url || ''; }
 
 async function fetchMovies() {
-  const { data, error } = await sb.from('movies').select('*').order('created_at', { ascending: false });
-  if (error) throw error;
-  return data || [];
+  const res = await fetch('data/movies.json', { cache: 'no-store' });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const data = await res.json();
+  const list = Array.isArray(data) ? data : [];
+  // newest first
+  list.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+  return list;
 }
 
 /* ---------------- Billboard hero ---------------- */
@@ -86,7 +90,7 @@ function renderHero() {
       <div class="billboard-empty">
         <h1>Welcome to CinePlay</h1>
         <p>${dbError
-          ? 'The movie database isn\'t connected yet. If you\'re the site owner, follow <b>SUPABASE_SETUP.md</b> to run the schema and add movies.'
+          ? 'Could not load the movie catalog. Please check your connection and try again.'
           : 'No movies here yet — check back soon, new titles are on the way.'}</p>
       </div>`;
     return;
@@ -182,9 +186,9 @@ function renderRows() {
     rowsEl.innerHTML = `
       <div class="empty-state">
         <div class="big">🎬</div>
-        <h2>${dbError ? 'Database not connected yet' : 'No movies yet'}</h2>
+        <h2>${dbError ? 'Could not load movies' : 'No movies yet'}</h2>
         <p>${dbError
-          ? 'The <code>movies</code> table could not be read. Site owner: run <code>supabase/schema.sql</code> in the Supabase SQL editor, then add movies from the admin panel.'
+          ? 'The movie catalog could not be loaded. Please check your connection and try again.'
           : 'New titles are coming soon. Check back later!'}</p>
       </div>`;
     return;

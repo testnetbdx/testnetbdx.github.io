@@ -1,11 +1,11 @@
 /* ============================================================
-   CinePlay — watch page
+   CinePlay — watch page (GitHub-as-database edition)
+   Movie data comes from data/movies.json — no backend, no keys.
    Plays a movie based on its video_type:
-     upload/direct -> HTML5 <video>
-     youtube       -> YouTube embed (any URL form)
-     embed         -> raw iframe URL
+     direct  -> HTML5 <video>
+     youtube -> YouTube embed (any URL form)
+     embed   -> raw iframe URL
    ============================================================ */
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const $ = (s) => document.querySelector(s);
 
 function esc(str) {
@@ -47,7 +47,7 @@ function renderPlayer(movie) {
       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
       allowfullscreen></iframe>`;
   } else {
-    // 'upload' or 'direct' — plain MP4-style file
+    // 'direct' (or legacy 'upload') — plain MP4-style file
     const v = document.createElement('video');
     v.src = url;
     v.controls = true;
@@ -86,20 +86,22 @@ async function init() {
   }
 
   try {
-    const { data, error } = await sb.from('movies').select('*').eq('id', id).maybeSingle();
-    if (error) throw error;
-    if (!data) {
+    const res = await fetch('data/movies.json', { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const list = await res.json();
+    const movie = Array.isArray(list) ? list.find((m) => String(m.id) === String(id)) : null;
+    if (!movie) {
       $('#playerLoading').remove();
       $('#watchError').style.display = 'block';
       return;
     }
-    renderPlayer(data);
-    renderInfo(data);
+    renderPlayer(movie);
+    renderInfo(movie);
   } catch (e) {
     console.warn('CinePlay watch: load failed', e);
     const pl = $('#playerLoading');
     if (pl) pl.remove();
-    $('#watchErrorMsg').textContent = 'Could not load this title. The database may not be set up yet.';
+    $('#watchErrorMsg').textContent = 'Could not load this title. Please check your connection and try again.';
     $('#watchError').style.display = 'block';
   }
 }

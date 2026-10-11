@@ -15,25 +15,36 @@
   <span class="admin-tag">ADMIN</span>
   <div class="spacer"></div>
   <a class="view-site" href="index.html">← View site</a>
-  <button class="btn-outline" id="logoutBtn" style="display:none">Sign out</button>
+  <button class="btn-outline" id="logoutBtn" style="display:none">Disconnect</button>
 </nav>
 
 <!-- ============ LOGIN VIEW ============ -->
 <div class="login-wrap" id="loginView">
   <div class="login-card">
     <h1>Admin sign in</h1>
-    <p class="sub">Only authorized admins can manage the CinePlay catalog.</p>
+    <p class="sub">Connect with a GitHub token to manage the CinePlay catalog. The token stays only in your browser — never in code.</p>
     <div class="form-error" id="loginError"></div>
     <form id="loginForm">
       <div class="field">
-        <label for="loginEmail">Email</label>
-        <input type="email" id="loginEmail" required autocomplete="username" placeholder="admin@example.com">
+        <label for="ghToken">GitHub token</label>
+        <input type="password" id="ghToken" autocomplete="off" placeholder="Paste token (ghp_… / github_pat_…)">
+        <div class="hint">Create one: GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens → Contents: <b>Read and write</b> on this repo. Full steps: <a href="ADMIN_SETUP.md" target="_blank" rel="noopener" style="color:#e50914">ADMIN_SETUP.md</a>.</div>
       </div>
-      <div class="field">
-        <label for="loginPass">Password</label>
-        <input type="password" id="loginPass" required autocomplete="current-password" placeholder="••••••••">
+      <div class="form-grid">
+        <div class="field">
+          <label for="ghOwner">Owner</label>
+          <input type="text" id="ghOwner" value="testnetbdx" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="ghRepo">Repo</label>
+          <input type="text" id="ghRepo" value="testnetbdx.github.io" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="ghBranch">Branch</label>
+          <input type="text" id="ghBranch" value="main" autocomplete="off">
+        </div>
       </div>
-      <button type="submit" class="btn-red" id="loginBtn">Sign in</button>
+      <button type="submit" class="btn-red" id="loginBtn" style="margin-top:14px">Connect</button>
     </form>
   </div>
 </div>
@@ -44,6 +55,26 @@
     <h1>Dashboard</h1>
     <div class="spacer"></div>
     <button class="btn-red" id="addMovieBtn">+ Add Movie</button>
+  </div>
+
+  <div class="panel" id="cloudPanel" style="margin-bottom:18px">
+    <div class="panel-head"><h2>☁️ Cloudinary settings <span style="font-weight:400;font-size:12px;color:#999">(for device video upload)</span></h2></div>
+    <div style="padding:16px 18px">
+      <div class="form-grid">
+        <div class="field">
+          <label for="cloudName">Cloud name</label>
+          <input type="text" id="cloudName" autocomplete="off" placeholder="e.g. dxxxxx123">
+        </div>
+        <div class="field">
+          <label for="uploadPreset">Unsigned upload preset</label>
+          <input type="text" id="uploadPreset" autocomplete="off" placeholder="e.g. cineplay-video">
+        </div>
+      </div>
+      <div class="hint">Free signup at cloudinary.com — no credit card. Exact steps: <a href="ADMIN_SETUP.md" target="_blank" rel="noopener" style="color:#e50914">ADMIN_SETUP.md</a> (Cloudinary section). Saved only in this browser (localStorage), never in the repo. <span id="cloudStatus" style="font-weight:700"></span></div>
+      <div class="form-actions" style="margin-top:12px">
+        <button type="button" class="btn-red" id="saveCloudBtn">Save settings</button>
+      </div>
+    </div>
   </div>
 
   <div class="stats">
@@ -115,30 +146,32 @@
     <div class="field full" style="margin-top:4px">
       <label>Video source</label>
       <div class="vtabs">
-        <button type="button" class="vtab active" data-vtab="upload">⬆ Upload file</button>
-        <button type="button" class="vtab" data-vtab="direct">🔗 Direct MP4 URL</button>
+        <button type="button" class="vtab active" data-vtab="device">📱 Upload from device</button>
         <button type="button" class="vtab" data-vtab="youtube">▶ YouTube URL</button>
+        <button type="button" class="vtab" data-vtab="direct">🔗 Direct MP4 URL</button>
         <button type="button" class="vtab" data-vtab="embed">🖥 Embed URL</button>
       </div>
-      <div class="vpanel active" id="vtab-upload">
-        <input type="file" id="fVideoFile" accept="video/*" style="width:100%;background:#232323;border:1px solid #3a3a3a;color:#fff;padding:11px 13px;border-radius:6px;font-size:14px">
-        <div class="hint">MP4 recommended. Uploads to the cineplay-media bucket.</div>
-        <div class="progress-wrap" id="uploadProgressWrap">
-          <div class="progress-track"><div class="progress-bar" id="uploadProgressBar"></div></div>
-          <div class="progress-label" id="uploadStatus">Uploading…</div>
+      <div class="vpanel active" id="vtab-device">
+        <input type="file" id="fVideoDevice" accept="video/*" style="width:100%;background:#232323;border:1px solid #3a3a3a;color:#fff;padding:11px 13px;border-radius:6px;font-size:14px">
+        <div class="hint">Pick a video from your phone gallery — uploads to Cloudinary (free, up to 100MB per video). For bigger files, compress first or use the YouTube tab with an Unlisted upload.</div>
+        <div class="progress-wrap" id="videoProgressWrap">
+          <div class="progress-track"><div class="progress-bar" id="videoProgressBar"></div></div>
+          <div class="progress-label" id="videoUploadStatus">Uploading…</div>
         </div>
-      </div>
-      <div class="vpanel" id="vtab-direct">
-        <input type="url" id="fVideoDirect" placeholder="https://example.com/movie.mp4">
+        <div class="hint" id="deviceVideoDone" style="display:none;color:#46d369;font-weight:700"></div>
       </div>
       <div class="vpanel" id="vtab-youtube">
         <input type="url" id="fVideoYoutube" placeholder="https://www.youtube.com/watch?v=…">
-        <div class="hint">Any YouTube link works (watch, youtu.be, embed, shorts).</div>
+        <div class="hint">Any YouTube link works (watch, youtu.be, embed, shorts). Unlisted videos work too.</div>
+      </div>
+      <div class="vpanel" id="vtab-direct">
+        <input type="url" id="fVideoDirect" placeholder="https://example.com/movie.mp4">
       </div>
       <div class="vpanel" id="vtab-embed">
         <input type="url" id="fVideoEmbed" placeholder="https://player.example.com/embed/…">
         <div class="hint">A page URL that can be iframed.</div>
       </div>
+      <div class="hint" style="margin-top:10px">💡 Device uploads go to Cloudinary (100MB max on the free plan). Full-length movies are usually bigger — upload those as Unlisted to YouTube and use the YouTube tab.</div>
     </div>
 
     <div class="checks">
@@ -155,8 +188,6 @@
 
 <div id="toast"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/config.js?v=20261011a"></script>
-<script src="js/admin.js?v=20261011a"></script>
+<script src="js/admin.js?v=20261011b"></script>
 </body>
 </html>
