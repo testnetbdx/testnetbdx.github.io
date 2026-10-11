@@ -1036,6 +1036,317 @@ async function saveMovie() {
   }
 }
 
+/* ---------------- Bulk import (CSV / JSON) ----------------
+   Adds many movies at once from a CSV or JSON file. Parsed rows are
+   previewed with validation, then appended through the same GitHub
+   API PUT+SHA flow (saveMoviesJson). Single-movie add/edit untouched. */
+let bulkRows = []; // [{ movie, errors:[], duplicate:false, rowNum }]
+
+const BULK_CATEGORIES = ['movie', 'web-series', 'anime', 'ott'];
+const BULK_KINDS = ['youtube', 'direct', 'embed'];
+
+function parseYesNo(v) {
+  const s = String(v == null ? '' : v).trim().toLowerCase();
+  return s === 'yes' || s === 'true' || s === '1' || s === 'y';
+}
+
+function slugId(title) {
+  const slug = String(title || 'movie')
+    .normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+    .slice(0, 50) || 'movie';
+  return slug + '-' + Math.random().toString(36).slice(2, 8);
+}
+
+/* Robust vanilla CSV parser: quoted fields, commas/newlines inside
+   quotes, "" escapes, CRLF. Returns array of rows (arrays of fields). */
+function parseCSV(text) {
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else inQuotes = false;
+      } else field += c;
+    } else if (c === '"') inQuotes = true;
+    else if (c === ',') { row.push(field); field = ''; }
+    else if (c === '\r') { /* skip — \n handles the break */ }
+    else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+    else field += c;
+  }
+  if (field !== '' || row.length) { row.push(field); rows.push(row); }
+  if (rows.length && rows[0].length && rows[0][0].charCodeAt(0) === 0xFEFF) {
+    rows[0][0] = rows[0][0].slice(1); // strip BOM
+  }
+  return rows.filter((r) => r.some((f) => String(f).trim() !== ''));
+}
+
+function csvEsc(v) {
+  const s = String(v == null ? '' : v);
+  return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+function downloadCsvTemplate() {
+  const header = ['title','year','genre','rating','duration','description','category','languages','episode_info','imdb_rating','stars','director','quality_info','quality','poster_url','backdrop_url','video_url','video_type','qualities','is_featured','is_trending','screenshots'];
+  const rows = [
+    ['Example Movie One','2026','Action, Drama','8.2','2h 15m','A short synopsis of the movie.','movie','Hindi, English','','7.9/10','Actor One, Actor Two','Director Name','WEB-DL 1080p | 720p | 480p','4K|HDR','https://example.com/poster1.jpg','https://example.com/backdrop1.jpg','https://www.youtube.com/watch?v=VIDEOID1','youtube','480p|[520MB]|https://example.com/movie-480p.mp4|direct;;720p|[1.2GB]|https://www.youtube.com/watch?v=VIDEOID1|youtube','yes','no','https://example.com/shot1.jpg|https://example.com/shot2.jpg'],
+    ['Example Series Two','2025','Sci-Fi','8.7','45m','An example web series.','web-series','English','S01 EP04','8.2/10','Actor Three','Director Two','','FHD','https://example.com/poster2.jpg','','https://example.com/series-s01e04.mp4','direct','','no','yes','']
+  ];
+  const csv = [header.join(','), ...rows.map((r) => r.map(csvEsc).join(','))].join('\r\n') + '\r\n';
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'cineplay-bulk-template.csv';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  toast('Template downloaded ✓');
+}
+
+/* lowercases + trims keys so CSV headers are case-insensitive */
+function lowerKeys(obj) {
+  const out = {};
+  for (const k of Object.keys(obj || {})) out[String(k).toLowerCase().trim()] = obj[k];
+  return out;
+}
+function str(v) { return v == null ? '' : String(v).trim(); }
+
+function normalizeBulkMovie(raw) {
+  const f = lowerKeys(raw);
+  const errors = [];
+  const title = str(f.title);
+  if (!title) errors.push('missing title');
+
+  const yearN = parseInt(str(f.year), 10);
+  const ratingN = parseFloat(str(f.rating));
+  let category = str(f.category).toLowerCase();
+  if (!BULK_CATEGORIES.includes(category)) category = 'movie';
+
+  const video_url = str(f.video_url);
+  let video_type = str(f.video_type).toLowerCase();
+  if (!BULK_KINDS.includes(video_type)) {
+    video_type = /youtu(\.be|be\.com)/i.test(video_url) ? 'youtube' : 'direct';
+  }
+
+  const toStrArr = (v, sep) => {
+    if (Array.isArray(v)) return v.map(str).filter(Boolean);
+    return str(v).split(sep).map((s) => s.trim()).filter(Boolean);
+  };
+
+  let qualities = [];
+  if (Array.isArray(f.qualities)) {
+    qualities = f.qualities
+      .filter((q) => q && (str(q.label) || str(q.url)))
+      .map((q) => ({
+        label: str(q.label),
+        size: str(q.size),
+        url: str(q.url),
+        kind: BULK_KINDS.includes(str(q.kind).toLowerCase()) ? str(q.kind).toLowerCase() : 'direct'
+      }))
+      .filter((q) => q.label && q.url);
+  } else {
+    const qstr = str(f.qualities);
+    if (qstr) {
+      for (const g of qstr.split(';;')) {
+        const parts = g.split('|').map((s) => s.trim());
+        const label = parts[0] || '', size = parts[1] || '', url = parts[2] || '';
+        let kind = (parts[3] || 'direct').toLowerCase();
+        if (!BULK_KINDS.includes(kind)) kind = 'direct';
+        if (label && url) qualities.push({ label, size, url, kind });
+      }
+    }
+  }
+
+  return {
+    movie: {
+      id: str(f.id) || slugId(title || 'movie'),
+      title,
+      description: str(f.description),
+      year: Number.isFinite(yearN) ? yearN : null,
+      genre: str(f.genre),
+      rating: Number.isFinite(ratingN) ? Math.min(10, Math.max(0, ratingN)) : null,
+      duration: str(f.duration),
+      quality: toStrArr(f.quality, '|'),
+      category,
+      languages: str(f.languages),
+      episode_info: str(f.episode_info),
+      imdb_rating: str(f.imdb_rating),
+      stars: str(f.stars),
+      director: str(f.director),
+      quality_info: str(f.quality_info),
+      screenshots: toStrArr(f.screenshots, '|'),
+      qualities,
+      poster_url: str(f.poster_url),
+      backdrop_url: str(f.backdrop_url),
+      video_url,
+      video_type,
+      is_featured: parseYesNo(f.is_featured),
+      is_trending: parseYesNo(f.is_trending),
+      created_at: str(f.created_at) || new Date().toISOString()
+    },
+    errors
+  };
+}
+
+function bulkDupKey(title, year) {
+  return String(title).trim().toLowerCase() + '|' + (year == null ? '' : year);
+}
+
+function showBulkError(msg) {
+  const e = $('#bulkError');
+  e.textContent = msg || '';
+  e.classList.toggle('show', !!msg);
+}
+
+function onBulkFilePicked(ev) {
+  const file = ev.target.files && ev.target.files[0];
+  showBulkError('');
+  $('#bulkResult').style.display = 'none';
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      parseBulkFile(file.name, String(reader.result || ''));
+    } catch (e) {
+      bulkRows = [];
+      renderBulkPreview();
+      showBulkError(e.message || String(e));
+    }
+    ev.target.value = ''; // allow re-picking the same file
+  };
+  reader.onerror = () => showBulkError('Could not read file.');
+  reader.readAsText(file);
+}
+
+function parseBulkFile(name, text) {
+  if (!text.trim()) throw new Error('File is empty.');
+  let raws;
+  if (/\.json$/i.test(name)) {
+    let parsed;
+    try { parsed = JSON.parse(text); }
+    catch (e) { throw new Error('Invalid JSON: ' + e.message); }
+    const arr = Array.isArray(parsed) ? parsed
+      : (parsed && Array.isArray(parsed.movies) ? parsed.movies : null);
+    if (!arr) throw new Error('JSON must be an array of movies or {"movies": [...]}.');
+    raws = arr.map((o, i) => ({ obj: o && typeof o === 'object' ? o : {}, rowNum: i + 1 }));
+  } else {
+    const rows = parseCSV(text);
+    if (!rows.length) throw new Error('No rows found in CSV.');
+    const header = rows[0].map((h) => String(h).toLowerCase().trim());
+    if (!header.includes('title')) throw new Error('Header row must contain a "title" column.');
+    raws = rows.slice(1).map((r, i) => {
+      const obj = {};
+      header.forEach((h, ci) => { if (h) obj[h] = r[ci] != null ? r[ci] : ''; });
+      return { obj, rowNum: i + 2 }; // +2: header is row 1
+    });
+  }
+  if (!raws.length) throw new Error('No data rows found.');
+
+  const seen = new Set(movies.map((m) => bulkDupKey(m.title, m.year)));
+  bulkRows = raws.map(({ obj, rowNum }) => {
+    const { movie, errors } = normalizeBulkMovie(obj);
+    let duplicate = false;
+    if (!errors.length) {
+      const key = bulkDupKey(movie.title, movie.year);
+      if (seen.has(key)) duplicate = true;
+      else seen.add(key);
+    }
+    return { movie, errors, duplicate, rowNum };
+  });
+  renderBulkPreview();
+}
+
+function renderBulkPreview() {
+  const wrap = $('#bulkPreview');
+  if (!bulkRows.length) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+  const valid = bulkRows.filter((r) => !r.errors.length && !r.duplicate).length;
+  const dups = bulkRows.filter((r) => r.duplicate).length;
+  const errs = bulkRows.filter((r) => r.errors.length).length;
+  $('#bulkSummary').textContent =
+    `${bulkRows.length} rows: ${valid} valid, ${dups} duplicate${dups === 1 ? '' : 's'} (skipped), ${errs} error${errs === 1 ? '' : 's'}.`;
+  $('#bulkTbody').innerHTML = bulkRows.map((r) => {
+    const m = r.movie;
+    let status, color;
+    if (r.errors.length) { status = '✗ ' + r.errors.join('; '); color = '#ff6b6b'; }
+    else if (r.duplicate) { status = '⚠ duplicate (title+year already in catalog)'; color = '#f5a623'; }
+    else { status = '✓ ready'; color = '#46d369'; }
+    return `<tr>
+      <td>${r.rowNum}</td>
+      <td>${esc(m.title) || '<i style="color:#999">—</i>'}</td>
+      <td>${m.year != null ? esc(m.year) : '—'}</td>
+      <td>${esc(CATEGORY_LABELS[movieCategory(m)] || m.category)}</td>
+      <td>${Array.isArray(m.qualities) ? m.qualities.length : 0}</td>
+      <td>${esc(m.video_type || '—')}</td>
+      <td style="color:${color};font-weight:700">${esc(status)}</td>
+    </tr>`;
+  }).join('');
+  const btn = $('#bulkImportBtn');
+  btn.textContent = `Import ${valid} movie${valid === 1 ? '' : 's'}`;
+  btn.disabled = valid === 0;
+}
+
+function clearBulk() {
+  bulkRows = [];
+  $('#bulkPreview').style.display = 'none';
+  $('#bulkResult').style.display = 'none';
+  showBulkError('');
+}
+
+function showBulkResult(msg) {
+  const el = $('#bulkResult');
+  el.textContent = msg;
+  el.style.display = 'block';
+  $('#bulkPreview').style.display = 'none';
+}
+
+async function doBulkImport() {
+  const valid = bulkRows.filter((r) => !r.errors.length && !r.duplicate);
+  if (!valid.length) return;
+  const btn = $('#bulkImportBtn');
+  btn.disabled = true;
+  btn.textContent = 'Importing…';
+  const wrap = $('#bulkProgressWrap');
+  wrap.classList.add('show');
+  $('#bulkProgressBar').style.width = '25%';
+  $('#bulkProgressLabel').textContent = 'Saving catalog…';
+  try {
+    const usedIds = new Set(movies.map((m) => m.id));
+    const newMovies = valid.map((r) => {
+      let id = r.movie.id;
+      while (usedIds.has(id)) id = slugId(r.movie.title);
+      usedIds.add(id);
+      return { ...r.movie, id };
+    });
+    movies.unshift(...newMovies);
+    $('#bulkProgressBar').style.width = '70%';
+    await saveMoviesJson(`CinePlay: bulk import ${newMovies.length} movies`);
+    $('#bulkProgressBar').style.width = '100%';
+    $('#bulkProgressLabel').textContent = 'Done ✓';
+    const dups = bulkRows.filter((r) => r.duplicate).length;
+    const errs = bulkRows.filter((r) => r.errors.length).length;
+    bulkRows = [];
+    renderDashboard();
+    showBulkResult(`${newMovies.length} added ✓, ${dups} skipped (duplicates), ${errs} errors. Site-e live hote ~1 min lagte pare.`);
+    toast(`Bulk import done: ${newMovies.length} added ✓`);
+  } catch (e) {
+    showBulkError('Import failed: ' + (e.message || e));
+  } finally {
+    setTimeout(() => wrap.classList.remove('show'), 1600);
+    btn.disabled = false;
+    renderBulkPreview(); // refreshes button label / hides if empty
+  }
+}
+
+function initBulkImport() {
+  $('#bulkTemplateBtn').addEventListener('click', downloadCsvTemplate);
+  $('#bulkFile').addEventListener('change', onBulkFilePicked);
+  $('#bulkImportBtn').addEventListener('click', doBulkImport);
+  $('#bulkClearBtn').addEventListener('click', clearBulk);
+}
+
 /* ---------------- Init ---------------- */
 function init() {
   $('#loginForm').addEventListener('submit', (ev) => doConnect(ev, false));
@@ -1060,6 +1371,7 @@ function init() {
   loadYtCfg();
   handleYtCallback(); // completes OAuth after Google redirects back (async, self-contained)
   loadCloudCfg();
+  initBulkImport();
 
   $('#addMovieBtn').addEventListener('click', () => openForm(null));
   $('#cancelMovieBtn').addEventListener('click', closeForm);

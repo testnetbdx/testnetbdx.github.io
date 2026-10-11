@@ -117,6 +117,38 @@
       </table>
     </div>
   </div>
+
+  <!-- ============ BULK IMPORT ============ -->
+  <div class="panel" id="bulkPanel" style="margin-top:18px">
+    <div class="panel-head"><h2>📥 Bulk Import <span style="font-weight:400;font-size:12px;color:#999">(many movies at once — CSV / JSON)</span></h2></div>
+    <div style="padding:16px 18px">
+      <div class="hint">Upload a <b>.csv</b> or <b>.json</b> file to add many movies in one go. Rows missing a <b>title</b> are skipped; rows whose title+year already exists are skipped as duplicates. <a href="ADMIN_SETUP.md" target="_blank" rel="noopener" style="color:#e50914">Format guide</a>.</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0;align-items:center">
+        <button type="button" class="btn-outline" id="bulkTemplateBtn">⬇ Download CSV template</button>
+        <label class="btn-outline" for="bulkFile" style="cursor:pointer;margin:0">📂 Choose CSV / JSON file</label>
+        <input type="file" id="bulkFile" accept=".csv,.json,text/csv,application/json" style="display:none">
+      </div>
+      <div class="form-error" id="bulkError"></div>
+      <div id="bulkResult" class="hint" style="display:none;font-weight:700;color:#46d369;margin-bottom:10px"></div>
+      <div id="bulkPreview" style="display:none">
+        <div id="bulkSummary" class="hint" style="font-weight:700;color:#fff"></div>
+        <div style="overflow:auto;max-height:340px;margin:10px 0;border:1px solid #333;border-radius:6px">
+          <table class="movies">
+            <thead><tr><th>#</th><th>Title</th><th>Year</th><th>Category</th><th>Qualities</th><th>Video</th><th>Status</th></tr></thead>
+            <tbody id="bulkTbody"></tbody>
+          </table>
+        </div>
+        <div class="form-actions" style="justify-content:flex-start">
+          <button type="button" class="btn-red" id="bulkImportBtn">Import</button>
+          <button type="button" class="btn-outline" id="bulkClearBtn">Clear</button>
+        </div>
+      </div>
+      <div class="progress-wrap" id="bulkProgressWrap">
+        <div class="progress-track"><div class="progress-bar" id="bulkProgressBar"></div></div>
+        <div class="progress-label" id="bulkProgressLabel">Saving…</div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ============ ADD / EDIT MOVIE MODAL ============ -->
@@ -313,6 +345,6 @@
 
 <div id="toast"></div>
 
-<script src="js/admin.js?v=20261011f"></script>
+<script src="js/admin.js?v=20261011g"></script>
 </body>
 </html>

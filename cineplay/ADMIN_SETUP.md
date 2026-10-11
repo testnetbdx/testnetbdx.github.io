@@ -112,3 +112,26 @@ Movie add/edit form-e ekhon aro field ache:
 - **Episode info**: series-er jonno (S01 EP04) — card-er niche year-er pashe dekhabe.
 
 Purono movie-te ei field na thakleo shomossha nai — khali thakle badge/pill dekhabe na, site thikmoto cholbe (backward compatible).
+
+## Bulk import (CSV / JSON)
+
+Dashboard-er **📥 Bulk Import** card diye ekbare onek movie add kora jay:
+
+1. **⬇ Download CSV template** — exact header + 2 ta example row soho template nambe. Oita edit kore nijer data bosao.
+2. **📂 Choose CSV / JSON file** — `.csv` ba `.json` file select koro.
+3. **Preview** dekhabe: proti row-er title/year/category/quality count + validation summary (koyta valid, koyta duplicate, koyta error — row number soho karon).
+4. **Import N movies** chap dao → shob ekbare catalog-e add hoye jabe.
+
+**CSV columns** (header row lagbei, case-insensitive, jekono order-e cholbe; shudhu `title` required):
+`title`, `year`, `genre`, `rating`, `duration`, `description`, `category` (movie/web-series/anime/ott), `languages`, `episode_info`, `imdb_rating`, `stars`, `director`, `quality_info`, `quality` (pipe diye, e.g. `4K|HDR`), `poster_url`, `backdrop_url`, `video_url`, `video_type` (youtube/direct/embed), `qualities`, `is_featured` (yes/no), `is_trending` (yes/no), `screenshots` (pipe diye URL, e.g. `https://…/s1.jpg|https://…/s2.jpg`).
+
+**qualities column format** — proti quality `label|size|url|kind`, quality-gulo `;;` diye alada:
+`480p|[520MB]|https://example.com/m-480p.mp4|direct;;720p|[1.2GB]|https://youtube.com/watch?v=…|youtube`
+
+**JSON format** — hoy movie object-er array, noy `{"movies": [...]}`. Field name admin form-er motoi (title, year, genre, quality: ["4K"], qualities: [{label, size, url, kind}], screenshots: [...], ityadi). Proti object-e ontoto `title` thakte hobe.
+
+**Note:**
+- Title missing thakle row skip hobe (error hishebe dekhabe).
+- **Duplicate check**: title+year (case-insensitive) age theke catalog-e thakle skip hobe — tai eki file duibar import korleo double entry hobe na.
+- `id` na dile auto-generate hobe (title-slug + random suffix); `created_at` auto = ekhon.
+- Shob ekta single GitHub save-e jay — boro file-eo ektai commit.
