@@ -77,6 +77,29 @@
     </div>
   </div>
 
+  <div class="panel" id="ytPanel" style="margin-bottom:18px">
+    <div class="panel-head"><h2>▶ YouTube upload settings <span style="font-weight:400;font-size:12px;color:#999">(direct upload from this panel)</span></h2></div>
+    <div style="padding:16px 18px">
+      <div class="form-grid">
+        <div class="field">
+          <label for="ytClientId">Google OAuth Client ID</label>
+          <input type="text" id="ytClientId" autocomplete="off" placeholder="xxxx.apps.googleusercontent.com">
+        </div>
+        <div class="field">
+          <label for="ytClientSecret">Client secret</label>
+          <input type="password" id="ytClientSecret" autocomplete="off" placeholder="Paste client secret">
+        </div>
+      </div>
+      <div class="hint">Google Cloud Console-e YouTube Data API v3 enable + OAuth client banao. Exact steps: <a href="ADMIN_SETUP.md" target="_blank" rel="noopener" style="color:#e50914">ADMIN_SETUP.md</a> (YouTube section). Redirect URI hishebe EXACT <code>https://testnetbdx.github.io/cineplay/admin.html</code> dite hobe. Saved only in this browser (localStorage), never in the repo. <span id="ytStatus" style="font-weight:700"></span></div>
+      <div class="form-error" id="ytError"></div>
+      <div class="form-actions" style="margin-top:12px">
+        <button type="button" class="btn-red" id="saveYtBtn">Save settings</button>
+        <button type="button" class="btn-outline" id="ytConnectBtn">Connect YouTube</button>
+        <button type="button" class="btn-outline" id="ytDisconnectBtn" style="display:none">Disconnect</button>
+      </div>
+    </div>
+  </div>
+
   <div class="stats">
     <div class="stat red"><div class="num" id="statTotal">0</div><div class="lbl">Total movies</div></div>
     <div class="stat gold"><div class="num" id="statFeatured">0</div><div class="lbl">Featured</div></div>
@@ -152,13 +175,50 @@
         <button type="button" class="vtab" data-vtab="embed">🖥 Embed URL</button>
       </div>
       <div class="vpanel active" id="vtab-device">
-        <input type="file" id="fVideoDevice" accept="video/*" style="width:100%;background:#232323;border:1px solid #3a3a3a;color:#fff;padding:11px 13px;border-radius:6px;font-size:14px">
-        <div class="hint">Pick a video from your phone gallery — uploads to Cloudinary (free, up to 100MB per video). For bigger files, compress first or use the YouTube tab with an Unlisted upload.</div>
-        <div class="progress-wrap" id="videoProgressWrap">
-          <div class="progress-track"><div class="progress-bar" id="videoProgressBar"></div></div>
-          <div class="progress-label" id="videoUploadStatus">Uploading…</div>
+        <div class="dest-toggle">
+          <button type="button" class="dest-btn active" data-dest="youtube">▶ YouTube <span>boro file — 256GB porjonto</span></button>
+          <button type="button" class="dest-btn" data-dest="cloudinary">☁️ Cloudinary <span>100MB porjonto choto clip</span></button>
         </div>
-        <div class="hint" id="deviceVideoDone" style="display:none;color:#46d369;font-weight:700"></div>
+
+        <!-- YouTube direct upload -->
+        <div id="dest-youtube">
+          <div class="hint" id="ytNotConnected" style="display:none;background:#3a1215;border:1px solid #7a1f24;color:#ffb4b4;padding:10px 14px;border-radius:6px;margin-bottom:10px">⚠️ YouTube connect kora nai — age dashboard-er <b>▶ YouTube upload settings</b> theke Connect koro.</div>
+          <input type="file" id="fVideoYtUpload" accept="video/*" style="width:100%;background:#232323;border:1px solid #3a3a3a;color:#fff;padding:11px 13px;border-radius:6px;font-size:14px">
+          <div class="form-grid" style="margin-top:10px">
+            <div class="field" style="margin-bottom:0">
+              <label for="fYtTitle">YouTube title</label>
+              <input type="text" id="fYtTitle" placeholder="Movie title">
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label for="fYtPrivacy">Privacy</label>
+              <select id="fYtPrivacy">
+                <option value="unlisted" selected>Unlisted</option>
+                <option value="private">Private</option>
+                <option value="public">Public</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-actions" style="margin-top:12px;justify-content:flex-start">
+            <button type="button" class="btn-red" id="ytUploadBtn">⬆ Upload to YouTube</button>
+            <button type="button" class="btn-outline" id="ytCancelBtn" style="display:none">Cancel</button>
+          </div>
+          <div class="progress-wrap" id="ytProgressWrap">
+            <div class="progress-track"><div class="progress-bar" id="ytProgressBar"></div></div>
+            <div class="progress-label" id="ytUploadStatus">Uploading…</div>
+          </div>
+          <div class="hint" id="ytVideoDone" style="display:none;color:#46d369;font-weight:700"></div>
+        </div>
+
+        <!-- Cloudinary upload (choto clip) -->
+        <div id="dest-cloudinary" style="display:none">
+          <input type="file" id="fVideoDevice" accept="video/*" style="width:100%;background:#232323;border:1px solid #3a3a3a;color:#fff;padding:11px 13px;border-radius:6px;font-size:14px">
+          <div class="hint">Pick a video from your phone gallery — uploads to Cloudinary (free, up to 100MB per video). For bigger files use the YouTube destination above.</div>
+          <div class="progress-wrap" id="videoProgressWrap">
+            <div class="progress-track"><div class="progress-bar" id="videoProgressBar"></div></div>
+            <div class="progress-label" id="videoUploadStatus">Uploading…</div>
+          </div>
+          <div class="hint" id="deviceVideoDone" style="display:none;color:#46d369;font-weight:700"></div>
+        </div>
       </div>
       <div class="vpanel" id="vtab-youtube">
         <input type="url" id="fVideoYoutube" placeholder="https://www.youtube.com/watch?v=…">
@@ -171,7 +231,7 @@
         <input type="url" id="fVideoEmbed" placeholder="https://player.example.com/embed/…">
         <div class="hint">A page URL that can be iframed.</div>
       </div>
-      <div class="hint" style="margin-top:10px">💡 Device uploads go to Cloudinary (100MB max on the free plan). Full-length movies are usually bigger — upload those as Unlisted to YouTube and use the YouTube tab.</div>
+      <div class="hint" style="margin-top:10px">💡 Boro movie file (3-10GB) → <b>📱 Upload from device</b> tab-er <b>YouTube</b> destination use koro (256GB porjonto, free). Choto clip → Cloudinary destination (100MB max).</div>
     </div>
 
     <div class="checks">
@@ -188,6 +248,6 @@
 
 <div id="toast"></div>
 
-<script src="js/admin.js?v=20261011c"></script>
+<script src="js/admin.js?v=20261011d"></script>
 </body>
 </html>

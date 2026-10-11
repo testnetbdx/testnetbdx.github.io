@@ -53,6 +53,17 @@ with Contents: Read and write on the repo, then Connect in the admin panel.
 - `youtube` → YouTube embed (any URL form: `watch?v=`, `youtu.be`, `/embed/`, `/shorts/`)
 - `embed` → raw iframe embed URL
 
+**Direct YouTube upload (admin panel):** `admin.html` can upload 3–10GB movie
+files straight to YouTube (Unlisted by default) — no backend. It uses
+YouTube Data API v3 with OAuth 2.0 PKCE (`youtube.upload` scope) and chunked
+resumable uploads (8MB chunks, auto-resume on 308, exponential backoff on
+5xx, cancel support). The admin's Google OAuth Client ID/secret and tokens
+live only in that browser's `localStorage` — never in the repo. First-time
+setup (Google Cloud project, API enable, consent screen, OAuth client with
+exact redirect URI `https://testnetbdx.github.io/cineplay/admin.html`) is
+documented click-by-click in `ADMIN_SETUP.md`. Honest limits: ~6 uploads/day
+(API quota), testing-mode refresh tokens expire after ~7 days.
+
 ## Movie object shape
 
 ```json

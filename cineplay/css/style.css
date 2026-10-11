@@ -451,6 +451,16 @@ table.movies tr:hover td { background: #1b1b1b; }
 .vtab.active { background: var(--red); border-color: var(--red); color: #fff; }
 .vpanel { display: none; }
 .vpanel.active { display: block; }
+/* upload destination toggle (YouTube vs Cloudinary) */
+.dest-toggle { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.dest-btn {
+  flex: 1; min-width: 200px; background: #232323; border: 1px solid #3a3a3a;
+  color: var(--muted); padding: 10px 14px; border-radius: 8px; font-size: 14px;
+  font-weight: 700; cursor: pointer; text-align: left;
+}
+.dest-btn span { display: block; font-size: 11px; font-weight: 400; color: var(--muted-2); margin-top: 3px; }
+.dest-btn.active { background: #1c2b1f; border-color: #46d369; color: #fff; }
+.dest-btn.active span { color: #9fe8b8; }
 .progress-wrap { display: none; margin-top: 12px; }
 .progress-wrap.show { display: block; }
 .progress-track { height: 8px; background: #2c2c2c; border-radius: 5px; overflow: hidden; }

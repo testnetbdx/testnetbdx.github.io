@@ -98,7 +98,7 @@ const PRESET_KEY = 'cineplay_upload_preset';
 const CLOUDINARY_MAX_BYTES = 100 * 1024 * 1024; // free plan cap per video
 
 let cloudCfg = { name: '', preset: '' };
-let deviceVideoUrl = '';
+let deviceResult = { url: '', type: '' }; // result of the device tab: {url, type:'direct'|'youtube'}
 
 function loadCloudCfg() {
   cloudCfg.name = localStorage.getItem(CLOUD_NAME_KEY) || '';
@@ -185,15 +185,400 @@ async function onDeviceFilePicked() {
   if (!file) return;
   clearFormError();
   try {
-    deviceVideoUrl = await uploadDeviceVideo(file);
+    const url = await uploadDeviceVideo(file);
+    deviceResult = { url, type: 'direct' };
     const done = $('#deviceVideoDone');
     done.style.display = 'block';
-    done.textContent = '✓ Uploaded: ' + deviceVideoUrl;
+    done.textContent = '✓ Uploaded: ' + url;
     toast('Video uploaded ✓');
   } catch (e) {
-    deviceVideoUrl = '';
+    deviceResult = { url: '', type: '' };
     input.value = '';
     showFormError(e.message || String(e));
+  }
+}
+
+/* ---------------- YouTube direct upload (OAuth2 PKCE + resumable) ----
+   Uploads 3-10GB movie files straight from this panel to YouTube
+   (Unlisted by default). Client ID/secret + tokens live ONLY in this
+   browser's localStorage — never in the repo, never in code. */
+const YT_CLIENT_KEY = 'cineplay_yt_client_id';
+const YT_SECRET_KEY = 'cineplay_yt_client_secret';
+const YT_TOKENS_KEY = 'cineplay_yt_tokens';
+const YT_VERIFIER_KEY = 'cineplay_yt_verifier';
+const YT_CHUNK = 8 * 1024 * 1024; // 8MB per chunk — must be a multiple of 256KB
+
+let ytCfg = { clientId: '', clientSecret: '' };
+let ytTokens = null;   // { access_token, refresh_token, expires_at }
+let ytUpload = null;   // { file, uri, xhr, cancelled }
+let activeDest = 'youtube';
+
+/* ---------- settings ---------- */
+function loadYtCfg() {
+  ytCfg.clientId = localStorage.getItem(YT_CLIENT_KEY) || '';
+  ytCfg.clientSecret = localStorage.getItem(YT_SECRET_KEY) || '';
+  $('#ytClientId').value = ytCfg.clientId;
+  $('#ytClientSecret').value = ytCfg.clientSecret;
+  try { ytTokens = JSON.parse(localStorage.getItem(YT_TOKENS_KEY) || 'null'); }
+  catch (_) { ytTokens = null; }
+  updateYtStatus();
+}
+function saveYtCfg() {
+  ytCfg.clientId = $('#ytClientId').value.trim();
+  ytCfg.clientSecret = $('#ytClientSecret').value.trim();
+  localStorage.setItem(YT_CLIENT_KEY, ytCfg.clientId);
+  localStorage.setItem(YT_SECRET_KEY, ytCfg.clientSecret);
+  updateYtStatus();
+  toast('YouTube settings saved ✓');
+}
+function updateYtStatus() {
+  const connected = !!(ytTokens && ytTokens.access_token);
+  const el = $('#ytStatus');
+  el.textContent = connected ? '✓ Connected to YouTube'
+    : (ytCfg.clientId && ytCfg.clientSecret ? '— settings saved, not connected yet' : '— not configured yet');
+  el.style.color = connected ? '#46d369' : '#999';
+  $('#ytConnectBtn').style.display = connected ? 'none' : 'inline-block';
+  $('#ytDisconnectBtn').style.display = connected ? 'inline-block' : 'none';
+  updateYtNotConnected();
+}
+function ytDisconnect() {
+  ytTokens = null;
+  localStorage.removeItem(YT_TOKENS_KEY);
+  updateYtStatus();
+  toast('YouTube disconnected.');
+}
+function ytError(msg) {
+  const e = $('#ytError');
+  e.textContent = msg || '';
+  e.classList.toggle('show', !!msg);
+}
+
+/* ---------- destination toggle (YouTube vs Cloudinary) ---------- */
+function setDest(name) {
+  activeDest = name;
+  $$('.dest-btn').forEach((b) => b.classList.toggle('active', b.dataset.dest === name));
+  $('#dest-youtube').style.display = name === 'youtube' ? 'block' : 'none';
+  $('#dest-cloudinary').style.display = name === 'cloudinary' ? 'block' : 'none';
+  updateYtNotConnected();
+}
+function updateYtNotConnected() {
+  const el = $('#ytNotConnected');
+  if (!el) return;
+  el.style.display = (activeDest === 'youtube' && !(ytTokens && ytTokens.access_token)) ? 'block' : 'none';
+}
+
+/* ---------- PKCE ---------- */
+function b64urlEncode(buf) {
+  const bytes = new Uint8Array(buf);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+async function ytCodeChallenge(verifier) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+  return b64urlEncode(digest);
+}
+/* EXACT — this URL must be registered as an Authorized redirect URI in Google Cloud */
+function ytRedirectUri() {
+  return location.origin + location.pathname;
+}
+
+async function ytConnect() {
+  ytError('');
+  if (!ytCfg.clientId || !ytCfg.clientSecret) {
+    ytError('Age Client ID + Client secret save koro, tarpor Connect chap dao.');
+    return;
+  }
+  const verifierBytes = new Uint8Array(64);
+  crypto.getRandomValues(verifierBytes);
+  const verifier = b64urlEncode(verifierBytes);
+  const challenge = await ytCodeChallenge(verifier);
+  sessionStorage.setItem(YT_VERIFIER_KEY, verifier);
+  const params = new URLSearchParams({
+    client_id: ytCfg.clientId,
+    redirect_uri: ytRedirectUri(),
+    response_type: 'code',
+    scope: 'https://www.googleapis.com/auth/youtube.upload',
+    code_challenge: challenge,
+    code_challenge_method: 'S256',
+    access_type: 'offline',
+    prompt: 'consent'
+  });
+  location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
+}
+
+/* Runs on every page load — completes the OAuth flow after Google
+   redirects back with ?code= (or shows ?error=). */
+async function handleYtCallback() {
+  let qs;
+  try { qs = new URLSearchParams(location.search); } catch (_) { return; }
+  const err = qs.get('error');
+  const code = qs.get('code');
+  if (!err && !code) return;
+  history.replaceState(null, '', location.pathname); // clean URL so reloads don't re-exchange
+  if (err) {
+    ytError(err === 'access_denied'
+      ? 'Access denied — Google-e Allow chap dao, ar nijeke OAuth consent screen-er Test user hishebe add koro (ADMIN_SETUP.md dekho).'
+      : 'YouTube connect failed: ' + err);
+    return;
+  }
+  if (!ytCfg.clientId || !ytCfg.clientSecret) {
+    ytError('Client ID/secret pawa jayni — age YouTube settings-e save koro, tarpor abar Connect koro.');
+    return;
+  }
+  const verifier = sessionStorage.getItem(YT_VERIFIER_KEY);
+  if (!verifier) {
+    ytError('Session expired — abar Connect YouTube chap dao.');
+    return;
+  }
+  try {
+    const res = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: ytCfg.clientId,
+        client_secret: ytCfg.clientSecret,
+        redirect_uri: ytRedirectUri(),
+        grant_type: 'authorization_code',
+        code_verifier: verifier
+      })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(ytTokenErrMsg(data, res.status));
+    storeYtTokens(data);
+    sessionStorage.removeItem(YT_VERIFIER_KEY);
+    updateYtStatus();
+    toast('YouTube connected ✓');
+  } catch (e) {
+    ytError('Token exchange failed: ' + (e.message || e));
+  }
+}
+
+function ytTokenErrMsg(data, status) {
+  const errCode = data && data.error ? String(data.error) : '';
+  if (/redirect_uri_mismatch/i.test(errCode)) {
+    return 'redirect_uri_mismatch — Google Cloud-e Authorized redirect URI EXACT "https://testnetbdx.github.io/cineplay/admin.html" hote hobe (kono trailing slash na).';
+  }
+  if (/invalid_grant/i.test(errCode)) return 'Code expired — abar Connect YouTube chap dao.';
+  const desc = data && (data.error_description || data.error);
+  return desc ? String(desc) : 'HTTP ' + status;
+}
+
+function storeYtTokens(data) {
+  ytTokens = {
+    access_token: data.access_token,
+    refresh_token: data.refresh_token || (ytTokens && ytTokens.refresh_token) || '',
+    expires_at: Date.now() + (data.expires_in || 3600) * 1000
+  };
+  localStorage.setItem(YT_TOKENS_KEY, JSON.stringify(ytTokens));
+}
+
+/* Returns a valid access token, refreshing silently when needed.
+   Throws Error('not-connected') / Error('reconnect') — caller shows UI text. */
+async function ytGetToken(forceRefresh = false) {
+  if (!ytTokens || !ytTokens.access_token) throw new Error('not-connected');
+  if (!forceRefresh && Date.now() < ytTokens.expires_at - 60000) return ytTokens.access_token;
+  if (!ytTokens.refresh_token) throw new Error('reconnect');
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      refresh_token: ytTokens.refresh_token,
+      client_id: ytCfg.clientId,
+      client_secret: ytCfg.clientSecret,
+      grant_type: 'refresh_token'
+    })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.access_token) {
+    // refresh token dead (testing-mode tokens expire after ~7 days)
+    ytTokens = null;
+    localStorage.removeItem(YT_TOKENS_KEY);
+    updateYtStatus();
+    throw new Error('reconnect');
+  }
+  storeYtTokens(data);
+  return ytTokens.access_token;
+}
+
+/* ---------- resumable upload ---------- */
+function fmtMB(b) { return (b / (1024 * 1024)).toFixed(1); }
+
+function ytUiProgress(doneBytes, total) {
+  const pct = Math.min(100, Math.round((doneBytes / total) * 100));
+  $('#ytProgressBar').style.width = pct + '%';
+  $('#ytUploadStatus').textContent = `Uploading… ${pct}% (${fmtMB(doneBytes)} / ${fmtMB(total)} MB)`;
+}
+
+async function ytUploadError(res, fallback) {
+  let msg = `${fallback} (HTTP ${res.status})`;
+  try {
+    const d = await res.json();
+    const reason = d && d.error && d.error.errors && d.error.errors[0] && d.error.errors[0].reason;
+    if (reason === 'quotaExceeded') msg = 'YouTube API daily limit sesh (~6 ta video/day) — kal abar try koro.';
+    else if (reason === 'uploadLimitExceeded') msg = 'YouTube upload limit exceeded — kal abar try koro.';
+    else if (d && d.error && d.error.message) msg = d.error.message;
+  } catch (_) { /* ignore */ }
+  return new Error(msg);
+}
+
+async function ytStartUpload() {
+  const input = $('#fVideoYtUpload');
+  const file = input.files && input.files[0];
+  if (!file) { showFormError('Age ekta video file select koro.'); return; }
+  let token;
+  try { token = await ytGetToken(); }
+  catch (e) {
+    showFormError(e.message === 'reconnect'
+      ? 'YouTube session expired — dashboard-er YouTube settings theke abar Connect koro.'
+      : 'YouTube connect kora nai — age dashboard-er YouTube settings theke Connect koro.');
+    return;
+  }
+  const titleInput = $('#fYtTitle');
+  if (!titleInput.value.trim()) {
+    titleInput.value = $('#fTitle').value.trim() || file.name.replace(/\.[^.]+$/, '');
+  }
+  const title = titleInput.value.trim() || 'Untitled';
+  const privacy = $('#fYtPrivacy').value || 'unlisted';
+  const description = $('#fDesc').value.trim();
+
+  $('#ytVideoDone').style.display = 'none';
+  $('#ytProgressWrap').classList.add('show');
+  $('#ytProgressBar').style.width = '2%';
+  $('#ytUploadStatus').textContent = 'Starting upload session…';
+  $('#ytCancelBtn').style.display = 'inline-block';
+  $('#ytUploadBtn').disabled = true;
+  clearFormError();
+  ytUpload = { file, uri: null, xhr: null, cancelled: false };
+
+  try {
+    // Step 1 — open a resumable session (retry once on 401 with a forced refresh)
+    let initRes = await ytInitSession(token, title, description, privacy, file);
+    if (initRes.status === 401) {
+      token = await ytGetToken(true);
+      initRes = await ytInitSession(token, title, description, privacy, file);
+    }
+    if (!initRes.ok) throw await ytUploadError(initRes, 'Could not start YouTube upload');
+    const uri = initRes.headers.get('Location');
+    if (!uri) throw new Error('YouTube did not return an upload session — network issue, abar try koro.');
+    ytUpload.uri = uri;
+
+    // Step 2 — chunked upload (8MB chunks, resumable)
+    const videoId = await ytPutChunks();
+    const watchUrl = 'https://www.youtube.com/watch?v=' + videoId;
+    deviceResult = { url: watchUrl, type: 'youtube' };
+    $('#ytProgressBar').style.width = '100%';
+    $('#ytUploadStatus').textContent = 'Upload complete ✓';
+    const done = $('#ytVideoDone');
+    done.style.display = 'block';
+    done.textContent = '✓ Uploaded to YouTube: ' + watchUrl;
+    toast('YouTube upload complete ✓');
+  } catch (e) {
+    if (ytUpload && ytUpload.cancelled) {
+      $('#ytUploadStatus').textContent = 'Upload cancelled.';
+    } else {
+      showFormError(e.message || String(e));
+      $('#ytProgressWrap').classList.remove('show');
+    }
+    deviceResult = { url: '', type: '' };
+  } finally {
+    ytUpload = null;
+    $('#ytCancelBtn').style.display = 'none';
+    $('#ytUploadBtn').disabled = false;
+  }
+}
+
+function ytInitSession(token, title, description, privacy, file) {
+  return fetch('https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + token,
+      'Content-Type': 'application/json; charset=UTF-8',
+      'X-Upload-Content-Type': file.type || 'video/mp4',
+      'X-Upload-Content-Length': String(file.size)
+    },
+    body: JSON.stringify({
+      snippet: { title, description, categoryId: '22' },
+      status: { privacyStatus: privacy }
+    })
+  });
+}
+
+/* PUTs the file in 8MB chunks. Resolves with the YouTube video id.
+   Handles 308 (resume), 5xx (exponential backoff), 403 quota, cancel. */
+function ytPutChunks() {
+  return new Promise((resolve, reject) => {
+    const file = ytUpload.file;
+    const uri = ytUpload.uri;
+    const total = file.size;
+
+    const putChunk = (offset, attempt) => {
+      if (!ytUpload || ytUpload.cancelled) return reject(new Error('cancelled'));
+      const end = Math.min(offset + YT_CHUNK, total) - 1;
+      const chunk = file.slice(offset, end + 1);
+      const xhr = new XMLHttpRequest();
+      ytUpload.xhr = xhr;
+      xhr.open('PUT', uri); // the session URI itself authorizes the request
+      xhr.setRequestHeader('Content-Range', `bytes ${offset}-${end}/${total}`);
+      xhr.upload.onprogress = (ev) => {
+        if (ev.lengthComputable) ytUiProgress(offset + ev.loaded, total);
+      };
+      xhr.onload = () => {
+        if (xhr.status === 200 || xhr.status === 201) {
+          let data = null;
+          try { data = JSON.parse(xhr.responseText); } catch (_) { /* ignore */ }
+          ytUiProgress(total, total);
+          if (data && data.id) resolve(data.id);
+          else reject(new Error('Upload finished but YouTube did not return a video id.'));
+        } else if (xhr.status === 308) {
+          // Resume Incomplete — ask the server how much it already has
+          let next = offset;
+          try {
+            const range = xhr.getResponseHeader('Range'); // e.g. "bytes=0-8388607"
+            const m = range && /bytes=\d+-(\d+)/.exec(range);
+            if (m) next = parseInt(m[1], 10) + 1;
+          } catch (_) { /* ignore */ }
+          ytUiProgress(next, total);
+          putChunk(next, 0);
+        } else if (xhr.status >= 500 && xhr.status < 600 && attempt < 5) {
+          const wait = Math.pow(2, attempt) * 1000;
+          $('#ytUploadStatus').textContent = `YouTube busy — retrying in ${wait / 1000}s…`;
+          setTimeout(() => putChunk(offset, attempt + 1), wait);
+        } else if (xhr.status === 403) {
+          let msg = 'YouTube rejected the upload (HTTP 403).';
+          try {
+            const d = JSON.parse(xhr.responseText);
+            const reason = d && d.error && d.error.errors && d.error.errors[0] && d.error.errors[0].reason;
+            if (reason === 'quotaExceeded') msg = 'YouTube API daily limit sesh (~6 ta video/day) — kal abar try koro.';
+            else if (reason === 'uploadLimitExceeded') msg = 'YouTube upload limit exceeded — kal abar try koro.';
+            else if (d && d.error && d.error.message) msg = d.error.message;
+          } catch (_) { /* ignore */ }
+          reject(new Error(msg));
+        } else {
+          reject(new Error(`Upload failed (HTTP ${xhr.status}) — abar try koro.`));
+        }
+      };
+      xhr.onerror = () => {
+        if (attempt < 5) {
+          const wait = Math.pow(2, attempt) * 1000;
+          setTimeout(() => putChunk(offset, attempt + 1), wait);
+        } else {
+          reject(new Error('Network error during upload — connection check kore abar try koro.'));
+        }
+      };
+      xhr.onabort = () => reject(new Error('cancelled'));
+      xhr.send(chunk);
+    };
+
+    putChunk(0, 0);
+  });
+}
+
+function ytCancelUpload() {
+  if (ytUpload) {
+    ytUpload.cancelled = true;
+    if (ytUpload.xhr) { try { ytUpload.xhr.abort(); } catch (_) { /* ignore */ } }
   }
 }
 
@@ -397,9 +782,14 @@ function openForm(movie) {
   $('#fVideoYoutube').value = '';
   $('#fVideoEmbed').value = '';
   $('#fVideoDevice').value = '';
-  deviceVideoUrl = '';
+  $('#fVideoYtUpload').value = '';
+  $('#fYtTitle').value = '';
+  deviceResult = { url: '', type: '' };
   $('#deviceVideoDone').style.display = 'none';
+  $('#ytVideoDone').style.display = 'none';
   $('#videoProgressWrap').classList.remove('show');
+  $('#ytProgressWrap').classList.remove('show');
+  setDest('youtube');
   $('#fFeatured').checked = !!(movie && movie.is_featured);
   $('#fTrending').checked = !!(movie && movie.is_trending);
 
@@ -469,13 +859,13 @@ async function saveMovie() {
   saveBtn.textContent = 'Saving…';
   try {
     // ---- video source ----
-    // "device" uploads to Cloudinary and is stored as a direct MP4 URL
-    // (video files can't live in the repo, so no repo upload here).
+    // "device" tab: YouTube destination → video_type 'youtube'; Cloudinary
+    // destination → video_type 'direct'. (Video files can't live in the repo.)
     let video_url = '', video_type = activeVtab;
     if (activeVtab === 'device') {
-      if (!deviceVideoUrl) throw new Error('Upload a video from your device first, or pick another tab.');
-      video_url = deviceVideoUrl;
-      video_type = 'direct';
+      if (!deviceResult.url) throw new Error('Upload a video from your device first, or pick another tab.');
+      video_url = deviceResult.url;
+      video_type = deviceResult.type || 'direct';
     } else if (activeVtab === 'direct') {
       video_url = $('#fVideoDirect').value.trim();
       if (!video_url) throw new Error('Paste a direct MP4 URL.');
@@ -546,6 +936,23 @@ function init() {
   $('#logoutBtn').addEventListener('click', doDisconnect);
   $('#saveCloudBtn').addEventListener('click', saveCloudCfg);
   $('#fVideoDevice').addEventListener('change', onDeviceFilePicked);
+
+  // YouTube direct upload
+  $('#saveYtBtn').addEventListener('click', saveYtCfg);
+  $('#ytConnectBtn').addEventListener('click', () => ytConnect());
+  $('#ytDisconnectBtn').addEventListener('click', ytDisconnect);
+  $('#ytUploadBtn').addEventListener('click', () => ytStartUpload());
+  $('#ytCancelBtn').addEventListener('click', ytCancelUpload);
+  $('#fVideoYtUpload').addEventListener('change', () => {
+    const f = $('#fVideoYtUpload').files[0];
+    if (f && !$('#fYtTitle').value.trim()) {
+      $('#fYtTitle').value = $('#fTitle').value.trim() || f.name.replace(/\.[^.]+$/, '');
+    }
+    $('#ytVideoDone').style.display = 'none';
+  });
+  $$('.dest-btn').forEach((b) => b.addEventListener('click', () => setDest(b.dataset.dest)));
+  loadYtCfg();
+  handleYtCallback(); // completes OAuth after Google redirects back (async, self-contained)
   loadCloudCfg();
 
   $('#addMovieBtn').addEventListener('click', () => openForm(null));

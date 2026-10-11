@@ -35,6 +35,53 @@ Admin panel-e **"Upload from device"** tab diye phone gallery theke sorasori vid
 
 Cloudinary-r Cloud name + preset public-safe (unsigned preset evabei kaj korar jonno), tobuo egulo repo-te rakha hoy na — shudhu tomar browser-er localStorage-e thake.
 
+## YouTube direct upload setup (Google Cloud) — 3-10GB movie-r jonno
+
+Admin panel thekei phone gallery-r boro video file (3-10GB porjonto) **sorasori YouTube-e upload** kora jay — YouTube app-er dorkar nai. Nicher setup ekbar korlei hobe:
+
+### A. Google Cloud project + API enable
+1. Jao: **console.cloud.google.com** → Google account diye login.
+2. Uporer project dropdown → **New project** → name daw `cineplay-uploader` → **Create**. Project select hoyeche kina dekho.
+3. Bam menu → **APIs & Services** → **Library**.
+4. Search koro **"YouTube Data API v3"** → select kore **Enable** chap dao.
+
+### B. OAuth consent screen
+1. **APIs & Services** → **OAuth consent screen** → **Get started**.
+2. **App name**: `CinePlay Uploader` → **Support email**: tomar Gmail select koro → **Next**.
+3. **Audience**: **External** select → **Next**.
+4. **Contact info**: tomar email → **Next** → **Save**.
+5. Ekhon **Audience** tab-e giye **Test users**-er niche **Add users** → **tomar nijer Gmail** add koro → **Save**. (Ei step chara Google tomake login korte dibe na.)
+6. **Data Access** tab → **Add or remove scopes** → search/filter-e `youtube.upload` likho → **`https://www.googleapis.com/auth/youtube.upload`** tick dao → **Update** → **Save**.
+
+### C. OAuth Client ID banao (ei step-e vul hole connect hobe na)
+1. **APIs & Services** → **Clients** (ba **Credentials** → **Create Credentials** → **OAuth client ID**).
+2. **Application type**: **Web application** → name: `CinePlay admin`.
+3. **Authorized JavaScript origins** → **Add URI**: `https://testnetbdx.github.io`
+4. **Authorized redirect URIs** → **Add URI**: EXACT `https://testnetbdx.github.io/cineplay/admin.html` (kono trailing `/` diba na — ekta character-o edik-odik hole connect fail korbe).
+5. **Create** → **Client ID** ar **Client secret** copy koro (secret-ta pore ar dekhabe na!).
+
+### D. Admin panel-e connect
+1. Khulo: https://testnetbdx.github.io/cineplay/admin.html → GitHub token diye login.
+2. Dashboard-er **▶ YouTube upload settings** card-e Client ID + Client secret bosiye **Save settings**.
+3. **Connect YouTube** chap dao → tomar Google account select koro → **Continue** → warning ashle **Advanced** → **Go to CinePlay Uploader** → **Allow**.
+4. Admin-e fire eshe status **✓ Connected to YouTube** dekhabe. Done!
+
+### E. Movie upload
+**+ Add Movie** → **📱 Upload from device** tab → destination **▶ YouTube** (default) → gallery theke video select → title/privacy (default **Unlisted**) → **⬆ Upload to YouTube**. Progress bar-e % + MB dekhabe; cancel korte chaile **Cancel** chap dao. Upload sesh hole link auto-boshe jabe → baki info diye **Save Movie**.
+
+### Shotyi kotha (limit) ⚠️
+- **YouTube API free quota ≈ 10,000 units/day, ekta upload ≈ 1,600 units → dine ~6 ta video** upload kora jay. Limit sesh hole porer din try koro.
+- Consent screen **Testing** mode-e thakle Google ~7 din por por abar login chaite pare (refresh token expire hoye jay) — tokhon shudhu **Connect YouTube** abar chap dilei hobe.
+- Upload default **Unlisted** thake — shudhu link jana manush dekhte pabe. Chaile Private/Public-o kora jay.
+- Boro file (3-10GB) upload-e somoy lagbe — majhkhane tab/browser bondho koro na. Net chole gele auto-retry hobe (5 bar porjonto).
+- YouTube upload scan kore (Content ID) — onner copyrighted full movie hole block/claim hote pare. Eta YouTube-er rule.
+
+### Troubleshooting
+- **redirect_uri_mismatch** → Google Cloud-er Authorized redirect URIs-te EXACT `https://testnetbdx.github.io/cineplay/admin.html` ache kina check koro (http/https, slash — shob milte hobe).
+- **access_denied** → nijeke **Test users**-e add korecho kina dekho (Step B-5).
+- **"YouTube API daily limit sesh"** → quota sesh, kal try koro.
+- **"Session expired — abar Connect koro"** → Connect YouTube abar chap dao.
+
 ## Kichu kotha
 
 - **Save korle site-e live hote ~1 min lagte pare** (GitHub Pages rebuild hote somoy ney).
