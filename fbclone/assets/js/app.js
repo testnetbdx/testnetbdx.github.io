@@ -146,7 +146,8 @@ function renderAuth(mode) {
         <div class="su-title">Sign Up</div>
         <div class="su-sub">It's quick and easy.</div>
         <input id="su_name" class="inp" placeholder="Full name">
-        <input id="su_email" class="inp" type="email" placeholder="Email address">
+        <input id="su_email" class="inp" type="email" placeholder="Gmail address">
+        <div class="muted" style="font-size:12px;margin-top:-8px">Only @gmail.com addresses allowed.</div>
         <input id="su_pass" class="inp" type="password" placeholder="New password" onkeydown="if(event.key==='Enter')doSignup()">
         <button class="btn-green" id="su_btn" onclick="doSignup()">Sign Up</button>
         <div class="auth-link"><a href="#" onclick="event.preventDefault();renderAuth('login')">Already have an account?</a></div>
@@ -166,6 +167,7 @@ async function doLogin() {
 async function doSignup() {
   const name = $('#su_name').value.trim(), email = $('#su_email').value.trim(), pass = $('#su_pass').value;
   if (!name || !email || pass.length < 6) { toast('Fill all fields (password min 6 chars).'); return; }
+  if (!/@gmail\.com$/i.test(email)) { toast('Only @gmail.com addresses can sign up.'); return; }
   const btn = $('#su_btn'); btn.disabled = true; btn.textContent = 'Creating...';
   try {
     const res = await signUp(name, email, pass);
