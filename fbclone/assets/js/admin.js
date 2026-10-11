@@ -258,8 +258,8 @@ async function toggleAdmin(id, isAdmin) {
 }
 async function wipeUser(id, name) {
   if (id === ME.id) { toast("You can't delete yourself."); return; }
-  if (!confirm(`Delete ALL posts of ${name} and ban them? (Their login row stays in Auth.)`)) return;
-  try { await adminWipeUser(id); toast('User wiped + banned.'); }
+  if (!confirm(`Delete ALL content of ${name} and ban them? (Their login stays in Auth.)`)) return;
+  try { await adminWipeUser(id); toast('User wiped + banned.'); renderTab(); }
   catch (e) { err(e); }
 }
 

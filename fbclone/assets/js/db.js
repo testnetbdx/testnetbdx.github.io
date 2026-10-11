@@ -280,6 +280,20 @@ async function saveSettings(patch) {
 }
 
 /* ---------------- Admin ---------------- */
+async function adminWipeUser(uid) {
+  // Delete user's content, then ban. Auth identity stays (Supabase limitation).
+  const tables = [
+    ['posts', 'author_id'], ['comments', 'author_id'],
+    ['reactions', 'user_id'], ['comment_reactions', 'user_id'],
+    ['stories', 'author_id'],
+  ];
+  for (const [tbl, col] of tables) {
+    try { await sb.from(tbl).delete().eq(col, uid); }
+    catch (e) { console.error('wipe ' + tbl, e); }
+  }
+  const { error } = await sb.from('profiles').update({ banned: true, is_admin: false }).eq('id', uid);
+  if (error) throw error;
+}
 async function adminGetUsers() {
   const { data: users, error } = await sb.from('profiles').select('*').order('created_at', { ascending: false });
   if (error) throw error;
