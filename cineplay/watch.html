@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Watch — CinePlay</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%23E50914'/><path d='M26 20l18 12-18 12z' fill='white'/></svg>">
+<link rel="stylesheet" href="css/style.css?v=20261011a">
+</head>
+<body class="watch-page">
+
+<header id="navbar">
+  <a class="logo" href="index.html" aria-label="CinePlay home">
+    <svg viewBox="0 0 64 64" fill="currentColor"><rect width="64" height="64" rx="12"/><path d="M26 20l18 12-18 12z" fill="#fff"/></svg>
+    CinePlay
+  </a>
+</header>
+
+<div class="watch-top">
+  <button class="back-btn" id="backBtn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M15 18l-6-6 6-6"/></svg>
+    Back
+  </button>
+</div>
+
+<div class="player-wrap">
+  <div class="player" id="player">
+    <div class="player-loading" id="playerLoading">
+      <div class="spinner"></div>
+      <div>Loading…</div>
+    </div>
+  </div>
+</div>
+
+<div class="watch-info" id="watchInfo" style="display:none">
+  <h1 id="watchTitle"></h1>
+  <div class="meta" id="watchMeta"></div>
+  <p class="desc" id="watchDesc"></p>
+</div>
+
+<div class="watch-error" id="watchError" style="display:none">
+  <h2>Movie not found</h2>
+  <p id="watchErrorMsg">This title doesn't exist or the database isn't set up yet.</p>
+  <p style="margin-top:18px"><a href="index.html" style="color:#e50914;font-weight:700">← Back to home</a></p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js?v=20261011a"></script>
+<script src="js/watch.js?v=20261011a"></script>
+</body>
+</html>

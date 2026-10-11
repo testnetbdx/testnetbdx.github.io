@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — CinePlay</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%23E50914'/><path d='M26 20l18 12-18 12z' fill='white'/></svg>">
+<link rel="stylesheet" href="css/style.css?v=20261011a">
+</head>
+<body class="admin-page">
+
+<nav class="admin-nav">
+  <span class="logo">CinePlay</span>
+  <span class="admin-tag">ADMIN</span>
+  <div class="spacer"></div>
+  <a class="view-site" href="index.html">← View site</a>
+  <button class="btn-outline" id="logoutBtn" style="display:none">Sign out</button>
+</nav>
+
+<!-- ============ LOGIN VIEW ============ -->
+<div class="login-wrap" id="loginView">
+  <div class="login-card">
+    <h1>Admin sign in</h1>
+    <p class="sub">Only authorized admins can manage the CinePlay catalog.</p>
+    <div class="form-error" id="loginError"></div>
+    <form id="loginForm">
+      <div class="field">
+        <label for="loginEmail">Email</label>
+        <input type="email" id="loginEmail" required autocomplete="username" placeholder="admin@example.com">
+      </div>
+      <div class="field">
+        <label for="loginPass">Password</label>
+        <input type="password" id="loginPass" required autocomplete="current-password" placeholder="••••••••">
+      </div>
+      <button type="submit" class="btn-red" id="loginBtn">Sign in</button>
+    </form>
+  </div>
+</div>
+
+<!-- ============ DASHBOARD VIEW ============ -->
+<div class="dash" id="dashView" style="display:none">
+  <div class="dash-head">
+    <h1>Dashboard</h1>
+    <div class="spacer"></div>
+    <button class="btn-red" id="addMovieBtn">+ Add Movie</button>
+  </div>
+
+  <div class="stats">
+    <div class="stat red"><div class="num" id="statTotal">0</div><div class="lbl">Total movies</div></div>
+    <div class="stat gold"><div class="num" id="statFeatured">0</div><div class="lbl">Featured</div></div>
+    <div class="stat green"><div class="num" id="statTrending">0</div><div class="lbl">Trending</div></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2>Movies</h2></div>
+    <div style="overflow-x:auto">
+      <table class="movies">
+        <thead>
+          <tr><th>Poster</th><th>Title</th><th>Year</th><th>Genre</th><th>Flags</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="moviesTbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ADD / EDIT MOVIE MODAL ============ -->
+<div id="movieModal">
+  <div class="form-card">
+    <h2 id="formTitle">Add Movie</h2>
+    <div class="form-error" id="formError"></div>
+    <input type="hidden" id="editingId" value="">
+
+    <div class="form-grid">
+      <div class="field full">
+        <label for="fTitle">Title *</label>
+        <input type="text" id="fTitle" placeholder="Movie title">
+      </div>
+      <div class="field full">
+        <label for="fDesc">Description</label>
+        <textarea id="fDesc" placeholder="Short synopsis…"></textarea>
+      </div>
+      <div class="field">
+        <label for="fYear">Year</label>
+        <input type="number" id="fYear" min="1900" max="2100" placeholder="2026">
+      </div>
+      <div class="field">
+        <label for="fGenre">Genre</label>
+        <input type="text" id="fGenre" placeholder="Action, Sci-Fi">
+        <div class="hint">Comma-separated for multiple genres.</div>
+      </div>
+      <div class="field">
+        <label for="fRating">Rating (0–10)</label>
+        <input type="number" id="fRating" min="0" max="10" step="0.1" placeholder="8.5">
+      </div>
+      <div class="field">
+        <label for="fDuration">Duration</label>
+        <input type="text" id="fDuration" placeholder="2h 15m">
+      </div>
+      <div class="field">
+        <label for="fPosterFile">Poster image</label>
+        <input type="file" id="fPosterFile" accept="image/*">
+        <input type="text" id="fPosterUrl" placeholder="…or paste image URL" style="margin-top:8px">
+        <img class="preview-img" id="posterPreview" alt="Poster preview">
+      </div>
+      <div class="field">
+        <label for="fBackdropFile">Backdrop image</label>
+        <input type="file" id="fBackdropFile" accept="image/*">
+        <input type="text" id="fBackdropUrl" placeholder="…or paste image URL" style="margin-top:8px">
+        <img class="preview-img" id="backdropPreview" alt="Backdrop preview">
+      </div>
+    </div>
+
+    <div class="field full" style="margin-top:4px">
+      <label>Video source</label>
+      <div class="vtabs">
+        <button type="button" class="vtab active" data-vtab="upload">⬆ Upload file</button>
+        <button type="button" class="vtab" data-vtab="direct">🔗 Direct MP4 URL</button>
+        <button type="button" class="vtab" data-vtab="youtube">▶ YouTube URL</button>
+        <button type="button" class="vtab" data-vtab="embed">🖥 Embed URL</button>
+      </div>
+      <div class="vpanel active" id="vtab-upload">
+        <input type="file" id="fVideoFile" accept="video/*" style="width:100%;background:#232323;border:1px solid #3a3a3a;color:#fff;padding:11px 13px;border-radius:6px;font-size:14px">
+        <div class="hint">MP4 recommended. Uploads to the cineplay-media bucket.</div>
+        <div class="progress-wrap" id="uploadProgressWrap">
+          <div class="progress-track"><div class="progress-bar" id="uploadProgressBar"></div></div>
+          <div class="progress-label" id="uploadStatus">Uploading…</div>
+        </div>
+      </div>
+      <div class="vpanel" id="vtab-direct">
+        <input type="url" id="fVideoDirect" placeholder="https://example.com/movie.mp4">
+      </div>
+      <div class="vpanel" id="vtab-youtube">
+        <input type="url" id="fVideoYoutube" placeholder="https://www.youtube.com/watch?v=…">
+        <div class="hint">Any YouTube link works (watch, youtu.be, embed, shorts).</div>
+      </div>
+      <div class="vpanel" id="vtab-embed">
+        <input type="url" id="fVideoEmbed" placeholder="https://player.example.com/embed/…">
+        <div class="hint">A page URL that can be iframed.</div>
+      </div>
+    </div>
+
+    <div class="checks">
+      <label class="check"><input type="checkbox" id="fFeatured"> Featured (hero billboard)</label>
+      <label class="check"><input type="checkbox" id="fTrending"> Trending Now row</label>
+    </div>
+
+    <div class="form-actions">
+      <button type="button" class="btn-outline" id="cancelMovieBtn">Cancel</button>
+      <button type="button" class="btn-red" id="saveMovieBtn">Save Movie</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js?v=20261011a"></script>
+<script src="js/admin.js?v=20261011a"></script>
+</body>
+</html>
