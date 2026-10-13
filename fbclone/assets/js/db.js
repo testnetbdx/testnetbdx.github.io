@@ -82,7 +82,7 @@ async function hydratePosts(posts) {
   const authorIds = [...new Set(posts.map(p => p.author_id))];
   const sharedIds = [...new Set(posts.map(p => p.shared_from).filter(Boolean))];
   const [profsR, rxR, commentsR, sharedR, sharesR] = await Promise.all([
-    sb.from('profiles').select('id,name,bio,banned,avatar_url').in('id', authorIds),
+    sb.from('profiles').select('id,name,bio,banned,avatar_url,verified').in('id', authorIds),
     sb.from('reactions').select('post_id,user_id,type').in('post_id', ids),
     sb.from('comments').select('id,post_id,text,created_at,author_id,parent_id').in('post_id', ids).order('created_at', { ascending: true }),
     sharedIds.length ? sb.from('posts').select('*').in('id', sharedIds) : Promise.resolve({ data: [] }),
@@ -101,14 +101,14 @@ async function hydratePosts(posts) {
   const cAuthorIds = [...new Set(comments.map(c => c.author_id))];
   let cmap = {};
   if (cAuthorIds.length) {
-    const { data: cprofs } = await sb.from('profiles').select('id,name,avatar_url').in('id', cAuthorIds);
+    const { data: cprofs } = await sb.from('profiles').select('id,name,avatar_url,verified').in('id', cAuthorIds);
     cmap = Object.fromEntries((cprofs || []).map(p => [p.id, p]));
   }
   const sharedMap = {};
   for (const s of shared) {
     let sa = pmap[s.author_id];
     if (!sa) {
-      const r = await sb.from('profiles').select('id,name,bio,banned,avatar_url').eq('id', s.author_id).single();
+      const r = await sb.from('profiles').select('id,name,bio,banned,avatar_url,verified').eq('id', s.author_id).single();
       sa = r.data;
     }
     sharedMap[s.id] = { ...s, author: sa || { name: '?', banned: false } };
@@ -202,7 +202,7 @@ async function followingIds() {
   return (data || []).map(f => f.following_id);
 }
 async function getUsersList(query = '') {
-  let q = sb.from('profiles').select('id,name,bio,avatar_url,created_at,banned,is_admin')
+  let q = sb.from('profiles').select('id,name,bio,avatar_url,created_at,banned,is_admin,verified')
     .eq('banned', false).neq('id', ME.id).order('created_at', { ascending: false }).limit(60);
   if (query) q = q.ilike('name', `%${query}%`);
   const { data, error } = await q;
@@ -225,7 +225,7 @@ async function updateBio(bio) {
 }
 async function searchAll(q) {
   const [u, p] = await Promise.all([
-    sb.from('profiles').select('id,name,bio,avatar_url').eq('banned', false).ilike('name', `%${q}%`).limit(20),
+    sb.from('profiles').select('id,name,bio,avatar_url,verified').eq('banned', false).ilike('name', `%${q}%`).limit(20),
     sb.from('posts').select('*').ilike('text', `%${q}%`).order('created_at', { ascending: false }).limit(30),
   ]);
   return { users: u.data || [], posts: await hydratePosts(p.data || []) };
@@ -246,7 +246,7 @@ async function getNotifications(limit = 20) {
   const actorIds = [...new Set((data || []).map(n => n.actor_id).filter(Boolean))];
   let amap = {};
   if (actorIds.length) {
-    const { data: actors } = await sb.from('profiles').select('id,name,avatar_url').in('id', actorIds);
+    const { data: actors } = await sb.from('profiles').select('id,name,avatar_url,verified').in('id', actorIds);
     amap = Object.fromEntries((actors || []).map(a => [a.id, a]));
   }
   return (data || []).map(n => ({ ...n, actor: amap[n.actor_id] || { name: 'Someone' } }));
@@ -400,14 +400,14 @@ async function getFollowers(uid) {
   const { data } = await sb.from('follows').select('follower_id').eq('following_id', uid);
   const ids = (data || []).map(f => f.follower_id);
   if (!ids.length) return [];
-  const { data: profs } = await sb.from('profiles').select('id,name,bio,avatar_url').in('id', ids);
+  const { data: profs } = await sb.from('profiles').select('id,name,bio,avatar_url,verified').in('id', ids);
   return profs || [];
 }
 async function getFollowing(uid) {
   const { data } = await sb.from('follows').select('following_id').eq('follower_id', uid);
   const ids = (data || []).map(f => f.following_id);
   if (!ids.length) return [];
-  const { data: profs } = await sb.from('profiles').select('id,name,bio,avatar_url').in('id', ids);
+  const { data: profs } = await sb.from('profiles').select('id,name,bio,avatar_url,verified').in('id', ids);
   return profs || [];
 }
 
@@ -420,7 +420,7 @@ async function getStories() {
   const authorIds = [...new Set((data || []).map(s => s.author_id))];
   let amap = {};
   if (authorIds.length) {
-    const { data: profs } = await sb.from('profiles').select('id,name,avatar_url').in('id', authorIds);
+    const { data: profs } = await sb.from('profiles').select('id,name,avatar_url,verified').in('id', authorIds);
     amap = Object.fromEntries((profs || []).map(p => [p.id, p]));
   }
   return (data || []).map(s => ({ ...s, author: amap[s.author_id] || { name: '?' } }));
@@ -506,7 +506,7 @@ async function getConversations() {
   const otherIds = [...new Set(Object.values(otherByConv))];
   let umap = {};
   if (otherIds.length) {
-    const { data: us } = await sb.from('profiles').select('id,name,avatar_url').in('id', otherIds);
+    const { data: us } = await sb.from('profiles').select('id,name,avatar_url,verified').in('id', otherIds);
     umap = Object.fromEntries((us || []).map(u => [u.id, u]));
   }
   const { data: msgs } = await sb.from('messages')
@@ -551,7 +551,7 @@ async function getListings() {
   const ids = [...new Set((data || []).map(l => l.seller_id))];
   let umap = {};
   if (ids.length) {
-    const { data: us } = await sb.from('profiles').select('id,name,avatar_url').in('id', ids);
+    const { data: us } = await sb.from('profiles').select('id,name,avatar_url,verified').in('id', ids);
     umap = Object.fromEntries((us || []).map(u => [u.id, u]));
   }
   return (data || []).map(l => ({ ...l, seller: umap[l.seller_id] || { name: '?' } }));
@@ -649,7 +649,7 @@ async function getGroupPage(id) {
   const mids = (members || []).map(m => m.user_id);
   let mprofs = [];
   if (mids.length) {
-    const { data } = await sb.from('profiles').select('id,name,bio,avatar_url').in('id', mids);
+    const { data } = await sb.from('profiles').select('id,name,bio,avatar_url,verified').in('id', mids);
     mprofs = data || [];
   }
   const { data: posts } = await sb.from('posts').select('*').eq('group_id', id)
