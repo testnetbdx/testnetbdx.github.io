@@ -42,8 +42,10 @@ const ICONS = {
   mappin: '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
   tag: '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><path d="M7 7h.01"/>',
 };
+const ICON_IMGS = { home: 'home', video: 'video', store: 'shop', users: 'friends', like: 'like', comment: 'comment', share: 'share' };
 function icon(n, s) {
   s = s || 22;
+  if (ICON_IMGS[n]) return `<img class="ic" src="assets/icons/${ICON_IMGS[n]}.png" width="${s}" height="${s}" alt="" aria-hidden="true">`;
   return `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n] || ''}</svg>`;
 }
 
