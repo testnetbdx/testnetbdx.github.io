@@ -87,6 +87,10 @@ function avatarHTML(name, size, attrs, url) {
     `${esc(initials(name))}${img}</div>`;
 }
 // convenience: pass a profile object directly
+function vbadge(p) {
+  // Facebook-style blue verified checkmark
+  return p && p.verified ? ' <svg class="vbadge" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="#1877F2"/><path d="M10.5 15.5l-3-3 1.4-1.4 1.6 1.6 4.6-4.6 1.4 1.4z" fill="#fff"/></svg>' : '';
+}
 function pav(profile, size, attrs) {
   profile = profile || {};
   return avatarHTML(profile.name, size, attrs, profile.avatar_url);

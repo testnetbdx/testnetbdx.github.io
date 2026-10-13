@@ -424,3 +424,6 @@ div.thought-bubble[onclick] { cursor: pointer; }
 .vu-drop:hover { border-color: var(--blue); background: var(--hover); }
 .vu-drop-ico { font-size: 44px; }
 #vuCaption { resize: vertical; min-height: 56px; }
+
+.vbadge{vertical-align:-2px;margin-left:2px;flex-shrink:0}
+.verify-btn{color:#1877F2!important}

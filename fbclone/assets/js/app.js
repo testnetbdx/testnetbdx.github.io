@@ -587,7 +587,7 @@ function postHTML(p) {
     <div class="post-head">
       <span onclick="openProfile('${a.id || ''}')" class="clickable">${pav(a, 40)}</span>
       <div class="post-meta">
-        <div class="post-name" onclick="openProfile('${a.id || ''}')">${esc(a.name)}${p.feeling ? ` <span class="feeling">— is feeling ${esc(p.feeling)}</span>` : ''}
+        <div class="post-name" onclick="openProfile('${a.id || ''}')">${esc(a.name)}${vbadge(a)}${p.feeling ? ` <span class="feeling">— is feeling ${esc(p.feeling)}</span>` : ''}
           ${p.pinned ? ' <span class="pin-tag">Pinned</span>' : ''}</div>
         <div class="post-time">${timeAgo(p.created_at)} · ${icon('globe', 12)}</div>
       </div>
@@ -687,7 +687,7 @@ function commentHTML(c, pid, isReply) {
     ${pav(c.author, isReply ? 28 : 32)}
     <div class="c-main">
       <div class="comment-body">
-        <b>${esc(c.author.name)}</b>
+        <b>${esc(c.author.name)}</b>${vbadge(c.author)}
         <div class="c-text">${esc(c.text)}</div>
         ${hasBangla(c.text) ? `<button class="c-tr" onclick="translateUI('${c.id}', this)">See translation</button><div class="c-tr-out" id="tro_${c.id}" hidden></div>` : ''}
       </div>
@@ -1676,7 +1676,7 @@ async function profileHTML(uidv) {
         ${pav(u, 120)}
         ${mine ? `<button class="pfp-cam" onclick="openAvatarMenu()" title="Edit profile picture">📷</button>` : ''}
       </div>
-      <div class="profile-info"><h2>${esc(u.name || (mine ? ME.name : "") || "User")}</h2>
+      <div class="profile-info"><h2>${esc(u.name || (mine ? ME.name : "") || "User")}${vbadge(mine ? ME : u)}</h2>
         ${u.thought
           ? `<div class="thought-bubble" ${mine ? 'onclick="editThought()" title="Edit thought"' : ''}>💭 ${esc(u.thought)}</div>`
           : (mine ? `<div class="thought-bubble empty" onclick="editThought()">+ Drop a thought...</div>` : '')}

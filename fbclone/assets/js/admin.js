@@ -235,7 +235,7 @@ function refreshUsersTable() {
 }
 function usersRows(users) {
   return users.map(u => `<tr>
-      <td><div class="cell-user">${pav(u, 32)}<b>${esc(u.name)}</b>${u.is_admin ? ' <span class="tag admin-tag">ADMIN</span>' : ''}</div></td>
+      <td><div class="cell-user">${pav(u, 32)}<b>${esc(u.name)}</b>${vbadge(u)}${u.is_admin ? ' <span class="tag admin-tag">ADMIN</span>' : ''}</div></td>
       <td class="muted">${esc(u.email || '')}</td>
       <td class="muted">${new Date(u.created_at).toLocaleDateString()}</td>
       <td>${u.postCount}</td>
@@ -243,6 +243,7 @@ function usersRows(users) {
       <td class="actions">
         <button class="mini" onclick="toggleBan('${u.id}',${u.banned})">${u.banned ? 'Unban' : 'Ban'}</button>
         <button class="mini" onclick="toggleAdmin('${u.id}',${u.is_admin})">${u.is_admin ? 'Demote' : 'Make admin'}</button>
+        <button class="mini verify-btn" onclick="toggleVerify('${u.id}',${!!u.verified})">${u.verified ? '✓ Unverify' : '✓ Verify'}</button>
         <button class="mini danger" onclick="wipeUser('${u.id}','${esc(u.name).replace(/'/g, "\\'")}')">Delete</button>
       </td></tr>`).join('');
 }
@@ -254,6 +255,10 @@ async function toggleBan(id, banned) {
 async function toggleAdmin(id, isAdmin) {
   if (id === ME.id && isAdmin) { toast("You can't demote yourself."); return; }
   try { await adminSetUser(id, { is_admin: !isAdmin }); toast(isAdmin ? 'Admin revoked.' : 'User is now an admin.'); }
+  catch (e) { err(e); }
+}
+async function toggleVerify(id, verified) {
+  try { await adminSetUser(id, { verified: !verified }); toast(verified ? 'Badge removed.' : 'User verified ✓'); renderTab(); }
   catch (e) { err(e); }
 }
 async function wipeUser(id, name) {
