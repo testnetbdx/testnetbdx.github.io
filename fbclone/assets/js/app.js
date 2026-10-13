@@ -1677,9 +1677,6 @@ async function profileHTML(uidv) {
         ${mine ? `<button class="pfp-cam" onclick="openAvatarMenu()" title="Edit profile picture">📷</button>` : ''}
       </div>
       <div class="profile-info"><h2>${esc(u.name || (mine ? ME.name : "") || "User")}${vbadge(mine ? ME : u)}</h2>
-        ${u.thought
-          ? `<div class="thought-bubble" ${mine ? 'onclick="editThought()" title="Edit thought"' : ''}>💭 ${esc(u.thought)}</div>`
-          : (mine ? `<div class="thought-bubble empty" onclick="editThought()">${esc(mine ? ME.name : u.name)}</div>` : '')}
         <div class="muted">${posts.length} posts · ${followers} followers</div>
       </div>
       <div class="profile-btns">
@@ -1800,19 +1797,6 @@ async function doChangeAvatar(input) {
     const url = await uploadToMedia(f, 'avatar');
     await updateProfile({ avatar_url: url });
     closeModal(); renderApp(); toast('Profile picture updated!');
-  } catch (e) { err(e); }
-}
-function editThought() {
-  openModal(`<h3>Drop a thought</h3>
-    <input id="th_val" class="inp" maxlength="120" placeholder="Share a quick thought..." value="${esc(ME.thought || '')}">
-    <div class="modal-actions"><button class="btn-ghost" onclick="saveThought(true)">Remove</button>
-    <button class="btn-primary" onclick="saveThought(false)">Save</button></div>`);
-  setTimeout(() => $('#th_val').focus(), 50);
-}
-async function saveThought(remove) {
-  try {
-    await updateProfile({ thought: remove ? '' : $('#th_val').value.trim().slice(0, 120) });
-    closeModal(); renderView(); toast(remove ? 'Thought removed.' : 'Thought updated!');
   } catch (e) { err(e); }
 }
 async function toggleFollowUI(uidv) {
