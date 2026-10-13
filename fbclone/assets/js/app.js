@@ -1679,7 +1679,7 @@ async function profileHTML(uidv) {
       <div class="profile-info"><h2>${esc(u.name || (mine ? ME.name : "") || "User")}${vbadge(mine ? ME : u)}</h2>
         ${u.thought
           ? `<div class="thought-bubble" ${mine ? 'onclick="editThought()" title="Edit thought"' : ''}>💭 ${esc(u.thought)}</div>`
-          : (mine ? `<div class="thought-bubble empty" onclick="editThought()">+ Drop a thought...</div>` : '')}
+          : (mine ? `<div class="thought-bubble empty" onclick="editThought()">${esc(mine ? ME.name : u.name)}</div>` : '')}
         <div class="muted">${posts.length} posts · ${followers} followers</div>
       </div>
       <div class="profile-btns">
